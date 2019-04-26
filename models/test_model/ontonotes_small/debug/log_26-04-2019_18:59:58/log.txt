@@ -1,0 +1,15 @@
+26-04-2019 18:59:58 DEBUG   Dumped config to models/test_model/ontonotes_small/debug/log_26-04-2019_18:59:58
+                            /config.txt.
+26-04-2019 18:59:58 DEBUG   Dumped config to models/test_model/ontonotes_small/debug/config.txt.
+26-04-2019 18:59:58 INFO    Loaded data loaders from models/test_model/ontonotes_small/asset/data_loaders.pk
+                            l.
+26-04-2019 18:59:58 INFO    Loaded word vocab from models/test_model/ontonotes_small/asset/word_vocab.pkl.
+26-04-2019 18:59:58 INFO    Loaded wordpiece vocab from models/test_model/ontonotes_small/asset/wordpiece_vo
+                            cab.pkl.
+26-04-2019 18:59:58 INFO    Loaded hierarchy from models/test_model/ontonotes_small/asset/hierarchy.pkl.
+26-04-2019 18:59:58 INFO    Building model.
+26-04-2019 19:00:00 INFO    Training model.
+26-04-2019 19:00:01 INFO    Epoch 1 of 3 : Loss = 1.000000                          0.56s                   
+                                                
+26-04-2019 19:00:01 INFO    Epoch 2 of 3 : Loss = 1.000000 [31m+0.000000[0m                0.56s          
+                                                

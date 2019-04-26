@@ -1,0 +1,16 @@
+Config at 26-04-2019_18:51:56
+================================================================================
+ASSET_FOLDER: models/test_model/ontonotes_small/asset
+BEST_MODEL_FOLDER: models/test_model/ontonotes_small/best_model
+DATASET: ontonotes_small
+DEBUG_FOLDER: models/test_model/ontonotes_small/debug
+EMBEDDING_DIM: 768
+HIDDEN_DIM: 300
+LEARNING_RATE: 0.1
+MAX_EPOCHS: 3
+MAX_SENT_LEN: 100
+MODEL: test_model
+MODEL_DATASET_FOLDER: models/test_model/ontonotes_small
+MODEL_FOLDER: models/test_model
+TEST_FILENAME: data/datasets/ontonotes_small/test.json
+TRAIN_FILENAME: data/datasets/ontonotes_small/train.json

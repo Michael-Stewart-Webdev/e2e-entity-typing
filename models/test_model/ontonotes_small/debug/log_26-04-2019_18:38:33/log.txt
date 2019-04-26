@@ -1,0 +1,17 @@
+26-04-2019 18:38:33 DEBUG   Dumped config to models/test_model/ontonotes_small/debug/log_26-04-2019_18:38:33
+                            /config.txt.
+26-04-2019 18:38:33 DEBUG   Dumped config to models/test_model/ontonotes_small/debug/config.txt.
+26-04-2019 18:38:33 INFO    Building category hierarchy.
+26-04-2019 18:38:33 INFO    Category hierarchy contains 18 categories.
+26-04-2019 18:38:33 INFO    Loading test dataset from data/datasets/ontonotes_small/test.json.
+26-04-2019 18:38:33 INFO    The test dataset was built successfully.
+26-04-2019 18:38:33 INFO    Loading train dataset from data/datasets/ontonotes_small/train.json.
+26-04-2019 18:38:33 INFO    The train dataset was built successfully.
+26-04-2019 18:38:33 INFO    Saved data loaders to models/test_model/ontonotes_small/asset/data_loaders.pkl.
+26-04-2019 18:38:33 INFO    Saved word vocab to models/test_model/ontonotes_small/asset/word_vocab.pkl.
+26-04-2019 18:38:33 INFO    Saved wordpiece vocab to models/test_model/ontonotes_small/asset/wordpiece_vocab
+                            .pkl.
+26-04-2019 18:38:33 INFO    Saved hierarchy to models/test_model/ontonotes_small/asset/hierarchy.pkl.
+26-04-2019 18:38:33 DEBUG   Saved word vocab to models/test_model/ontonotes_small/debug/word_vocab.txt.
+26-04-2019 18:38:33 DEBUG   Saved wordpiece vocab to models/test_model/ontonotes_small/debug/wordpiece_vocab
+                            .txt.

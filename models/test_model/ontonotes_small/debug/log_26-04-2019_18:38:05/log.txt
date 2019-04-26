@@ -1,0 +1,6 @@
+26-04-2019 18:38:05 DEBUG   Dumped config to models/test_model/ontonotes_small/debug/log_26-04-2019_18:38:05
+                            /config.txt.
+26-04-2019 18:38:05 DEBUG   Dumped config to models/test_model/ontonotes_small/debug/config.txt.
+26-04-2019 18:38:05 INFO    Building category hierarchy.
+26-04-2019 18:38:05 INFO    Category hierarchy contains 18 categories.
+26-04-2019 18:38:05 INFO    Loading test dataset from data/datasets/ontonotes_small/test.json.

@@ -1,0 +1,57 @@
+26-04-2019 19:01:03 DEBUG   Dumped config to models/test_model/ontonotes_small/debug/config.txt.
+26-04-2019 19:01:03 INFO    Loaded data loaders from models/test_model/ontonotes_small/asset/data_loaders.pk
+                            l.
+26-04-2019 19:01:03 INFO    Loaded word vocab from models/test_model/ontonotes_small/asset/word_vocab.pkl.
+26-04-2019 19:01:03 INFO    Loaded wordpiece vocab from models/test_model/ontonotes_small/asset/wordpiece_vo
+                            cab.pkl.
+26-04-2019 19:01:03 INFO    Loaded hierarchy from models/test_model/ontonotes_small/asset/hierarchy.pkl.
+26-04-2019 19:01:03 INFO    Building model.
+26-04-2019 19:01:04 INFO    Training model.
+26-04-2019 19:01:05 INFO    Epoch 1    of 2000 : Loss = 0.693443                          0.55s             
+                                                
+26-04-2019 19:01:05 INFO    Epoch 2    of 2000 : Loss = 0.678439 [32m-0.015005[0m                0.56s    
+                                                
+26-04-2019 19:01:06 INFO    Epoch 3    of 2000 : Loss = 0.653187 [32m-0.025251[0m                0.56s    
+                                                
+26-04-2019 19:01:06 INFO    Epoch 4    of 2000 : Loss = 0.621790 [32m-0.031397[0m                0.55s    
+                                                
+26-04-2019 19:01:07 INFO    Epoch 5    of 2000 : Loss = 0.587881 [32m-0.033909[0m                0.55s    
+                                                
+26-04-2019 19:01:08 INFO    Epoch 6    of 2000 : Loss = 0.555800 [32m-0.032081[0m                0.55s    
+                                                
+26-04-2019 19:01:08 INFO    Epoch 7    of 2000 : Loss = 0.528139 [32m-0.027661[0m                0.55s    
+                                                
+26-04-2019 19:01:09 INFO    Epoch 8    of 2000 : Loss = 0.503916 [32m-0.024223[0m                0.55s    
+                                                
+26-04-2019 19:01:09 INFO    Epoch 9    of 2000 : Loss = 0.480884 [32m-0.023032[0m                0.55s    
+                                                
+26-04-2019 19:01:10 INFO    Epoch 10   of 2000 : Loss = 0.457519 [32m-0.023365[0m                0.56s    
+                                                
+26-04-2019 19:01:10 INFO    Epoch 11   of 2000 : Loss = 0.433185 [32m-0.024335[0m                0.55s    
+                                                
+26-04-2019 19:01:11 INFO    Epoch 12   of 2000 : Loss = 0.407733 [32m-0.025452[0m                0.55s    
+                                                
+26-04-2019 19:01:11 INFO    Epoch 13   of 2000 : Loss = 0.381248 [32m-0.026485[0m                0.55s    
+                                                
+26-04-2019 19:01:12 INFO    Epoch 14   of 2000 : Loss = 0.353945 [32m-0.027303[0m                0.55s    
+                                                
+26-04-2019 19:01:13 INFO    Epoch 15   of 2000 : Loss = 0.326113 [32m-0.027833[0m                0.55s    
+                                                
+26-04-2019 19:01:13 INFO    Epoch 16   of 2000 : Loss = 0.298100 [32m-0.028012[0m                0.55s    
+                                                
+26-04-2019 19:01:14 INFO    Epoch 17   of 2000 : Loss = 0.270305 [32m-0.027795[0m                0.55s    
+                                                
+26-04-2019 19:01:14 INFO    Epoch 18   of 2000 : Loss = 0.243159 [32m-0.027146[0m                0.55s    
+                                                
+26-04-2019 19:01:15 INFO    Epoch 19   of 2000 : Loss = 0.217101 [32m-0.026058[0m                0.55s    
+                                                
+26-04-2019 19:01:15 INFO    Epoch 20   of 2000 : Loss = 0.192542 [32m-0.024559[0m                0.55s    
+                                                
+26-04-2019 19:01:16 INFO    Epoch 21   of 2000 : Loss = 0.169822 [32m-0.022720[0m                0.56s    
+                                                
+26-04-2019 19:01:16 INFO    Epoch 22   of 2000 : Loss = 0.149173 [32m-0.020648[0m                0.55s    
+                                                
+26-04-2019 19:01:17 INFO    Epoch 23   of 2000 : Loss = 0.130721 [32m-0.018453[0m                0.55s    
+                                                
+26-04-2019 19:01:18 INFO    Epoch 24   of 2000 : Loss = 0.114459 [32m-0.016262[0m                0.55s    
+                                                
