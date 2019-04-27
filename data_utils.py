@@ -1,6 +1,7 @@
 import pickle as pkl 
 from torch.utils.data import Dataset
 from logger import logger
+import torch
 
 
 # Save an object to a pickle file and provide a message when complete.
@@ -102,3 +103,37 @@ class Vocab():
 
 	def __len__(self):
 		return len(self.token_to_ix)
+
+
+# Convert an entire batch to wordpieces using the vocab object.
+def batch_to_wordpieces(batch_x, vocab):
+	wordpieces = []
+	padding_idx = vocab.token_to_ix["[PAD]"]
+	for sent in batch_x:
+		wordpieces.append([vocab.ix_to_token[x] for x in sent if x != padding_idx])
+	return wordpieces
+
+def wordpieces_to_bert_embs(batch_x, bc):
+	return torch.from_numpy(bc.encode(batch_x, is_tokenized=True))
+
+
+# Takes a token to wordpiece vector and modifies it as follows:
+#   [1, 3, 4] ->
+# [ [1, 2], [3], [4] ]
+def build_token_to_wp_mapping(batch_tm):
+	token_idxs_to_wp_idxs = []
+	for row in batch_tm:		
+		ls = [i for i in row.tolist() if i >= 0]
+
+		token_idxs_to_wp_idxs.append([None] * len(ls))
+
+		for i, item in enumerate(ls):
+					
+			if i+1 > len(ls) - 1:
+				m = ls[i] + 1
+			else:
+				m = ls[i+1]	
+
+			token_idxs_to_wp_idxs[-1][i] = range(ls[i], m)
+
+	return token_idxs_to_wp_idxs

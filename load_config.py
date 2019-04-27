@@ -12,7 +12,9 @@ from colorama import Fore, Back, Style
 
 import data_utils as dutils
 from logger import logger, LogToFile
+import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Create a folder if it does not exist, and return the folder.
 def initialise_folder(folder, folder_name):		
@@ -41,15 +43,18 @@ class Config():
 		self.MAX_EPOCHS = cf['max_epochs']
 		self.LEARNING_RATE = cf['learning_rate']
 		self.MAX_SENT_LEN = cf['max_sent_len']
+		self.STOP_CONDITION = cf['stop_condition'] # Stop after this many epochs with no f1 improvement
 
 		self.TRAIN_FILENAME = check_filename_exists("data/datasets/%s/train.json" % cf['dataset'])
-		self.TEST_FILENAME  = check_filename_exists("data/datasets/%s/test.json" % cf['dataset'])
+		self.TEST_FILENAME  = check_filename_exists("data/datasets/%s/train.json" % cf['dataset'])
 
-		self.MODEL_FOLDER 			= initialise_folder("models/%s" % cf['model'], "model")
-		self.MODEL_DATASET_FOLDER 	= initialise_folder("models/%s/%s" % (cf['model'], cf['dataset']), "model+dataset")
-		self.DEBUG_FOLDER 			= initialise_folder("models/%s/%s/debug" % (cf['model'], cf['dataset']), "asset")
-		self.ASSET_FOLDER 			= initialise_folder("models/%s/%s/asset" % (cf['model'], cf['dataset']), "asset")
-		self.BEST_MODEL_FOLDER 		= initialise_folder("models/%s/%s/best_model" % (cf['model'], cf['dataset']), "best model")
+		self.MODEL_FOLDER 				= initialise_folder("models/%s" % cf['model'], "model")
+		self.MODEL_DATASET_FOLDER 		= initialise_folder("models/%s/%s" % (cf['model'], cf['dataset']), "model+dataset")
+		self.DEBUG_FOLDER 				= initialise_folder("models/%s/%s/debug" % (cf['model'], cf['dataset']), "asset")
+		self.ASSET_FOLDER 				= initialise_folder("models/%s/%s/asset" % (cf['model'], cf['dataset']), "asset")
+		self.BEST_MODEL_FOLDER 			= initialise_folder("models/%s/%s/best_model" % (cf['model'], cf['dataset']), "best model")
+		self.BEST_MODEL_FILENAME		= "%s/model" % self.BEST_MODEL_FOLDER
+		self.BEST_MODEL_JSON_FILENAME	= "%s/model.json" % self.BEST_MODEL_FOLDER
 
 		self.EMBEDDING_DIM = cf['embedding_dim']
 		self.HIDDEN_DIM = cf['hidden_dim']

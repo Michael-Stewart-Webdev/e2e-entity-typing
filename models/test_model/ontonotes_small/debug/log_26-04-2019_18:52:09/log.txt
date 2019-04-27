@@ -1,3 +1,0 @@
-26-04-2019 18:52:09 DEBUG   Dumped config to models/test_model/ontonotes_small/debug/log_26-04-2019_18:52:09
-                            /config.txt.
-26-04-2019 18:52:09 DEBUG   Dumped config to models/test_model/ontonotes_small/debug/config.txt.

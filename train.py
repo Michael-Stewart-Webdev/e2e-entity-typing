@@ -1,38 +1,32 @@
 import data_utils as dutils
-from data_utils import Vocab, CategoryHierarchy, EntityTypingDataset
+from data_utils import Vocab, CategoryHierarchy, EntityTypingDataset, batch_to_wordpieces, wordpieces_to_bert_embs
 from bert_serving.client import BertClient
 from logger import logger
 from model import E2EETModel
 import torch.optim as optim
 from progress_bar import ProgressBar
-import time
+import time, json
 import torch
-from load_config import load_config
+from load_config import load_config, device
 cf = load_config()
+from evaluate import ModelEvaluator
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Convert an entire batch to wordpieces using the vocab object.
-def batch_to_wordpieces(batch_x, vocab):
-	wordpieces = []
-	padding_idx = vocab.token_to_ix["[PAD]"]
-	for sent in batch_x:
-		wordpieces.append([vocab.ix_to_token[x] for x in sent if x != padding_idx])
-	return wordpieces
 
-def wordpieces_to_bert_embs(batch_x, bc):
-	return torch.from_numpy(bc.encode(batch_x, is_tokenized=True))
 
+
+
+
+# Train the model, evaluating it every 10 epochs.
 def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_start = 1):
 
-	
 	logger.info("Training model.")
 	
-
+	# Set up a new Bert Client, for encoding the wordpieces
 	bc = BertClient()
-	
-	
 
+	modelEvaluator = ModelEvaluator(model, data_loaders['test'], word_vocab, wordpiece_vocab, hierarchy, bc)
+	
 	optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=cf.LEARNING_RATE, momentum=0.9)
 	model.cuda()
 
@@ -54,6 +48,7 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 			# 2. Encode the wordpieces into Bert vectors
 			bert_embs  = wordpieces_to_bert_embs(wordpieces, bc)
 
+
 			batch_x = bert_embs.to(device)
 			batch_y = batch_y.float().to(device)
 
@@ -61,7 +56,7 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 			model.zero_grad()
 			model.train()
 
-			loss = model(batch_x, batch_y)
+			loss = model.calculate_loss(model(batch_x), batch_y)
 
 			# 4. Backpropagate
 			loss.backward()
@@ -74,8 +69,10 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 		avg_loss = sum(epoch_losses) / float(len(epoch_losses))
 		avg_loss_list.append(avg_loss)
 
-
 		progress_bar.draw_completed_epoch(avg_loss, avg_loss_list, epoch, epoch_start_time)
+
+		modelEvaluator.evaluate_every_n_epochs(5, epoch)
+
 
 def main():
 
