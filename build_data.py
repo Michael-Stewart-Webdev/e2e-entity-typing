@@ -155,14 +155,14 @@ def build_hierarchy(filepaths):
 	# Load the hierarchy
 	logger.info("Building category hierarchy.")
 	hierarchy = CategoryHierarchy()
-	for filepath in filepaths:
+	for ds_name, filepath in filepaths.items():
 		with jsonlines.open(filepath, "r") as reader:
 			for i, line in enumerate(reader):
 				for m in line['mentions']:
 					labels = set(m['labels'])
 					for l in labels:
 						hierarchy.add_category(l)
-				if i >= cf.MAX_SENTS:
+				if i >= cf.MAX_SENTS[ds_name]:
 					break
 	hierarchy.freeze_categories() # Convert the set to a list, and sort it
 	logger.info("Category hierarchy contains %d categories." % len(hierarchy))
@@ -190,7 +190,7 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 			else:
 				invalid_sentences_count += 1
 			total_sents += 1
-			if total_sents >= cf.MAX_SENTS:
+			if total_sents >= cf.MAX_SENTS[ds_name]:
 				break
 
 	# If any sentences are invalid, log a warning message.
@@ -224,7 +224,7 @@ def main(asset_path):
 	}
 
 	# 1. Construct the Hierarchy by looking through each dataset for unique labels.
-	hierarchy = build_hierarchy(dataset_filenames.values())
+	hierarchy = build_hierarchy(dataset_filenames)
 
 	# 2. Construct two empty Vocab objects (one for words, another for wordpieces), which will be populated in step 3.
 	word_vocab = Vocab()

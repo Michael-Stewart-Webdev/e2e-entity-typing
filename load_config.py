@@ -45,7 +45,7 @@ class Config():
 		self.BATCH_SIZE = cf['batch_size']
 		self.MAX_SENT_LEN = cf['max_sent_len']
 		self.STOP_CONDITION = cf['stop_condition'] # Stop after this many epochs with no f1 improvement
-		self.MAX_SENTS = cf['max_sents']
+		self.MAX_SENTS = {"train": cf['max_train_sents'], "test": cf['max_test_sents']}
 
 
 		self.TRAIN_FILENAME = check_filename_exists("data/datasets/%s/train.json" % cf['dataset'])

@@ -72,6 +72,10 @@ class CategoryHierarchy():
 		except KeyError as e:			
 			logger.error("Category '%s' does not appear in the hierarchy." % category)
 
+	# Transforms a one-hot vector of categories into a list of categories.
+	def onehot2categories(self, onehot):
+		return [self.categories[ix] for ix in range(len(onehot)) if onehot[ix] == 1]
+
 	# Transform a list of categories into a one-hot vector, where a 1 represents that category existing in the list.
 	def categories2onehot(self, categories):
 		categories_onehot = [0] * len(self.categories)
