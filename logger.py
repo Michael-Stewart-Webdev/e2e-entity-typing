@@ -39,13 +39,17 @@ class LogToFile(logger.Formatter):
 				for i in range(0, len(msg), n):
 					chunks.append(msg[i: i + n])
 				return chunks
-			lines = get_chunks(msg)
+			lines = get_chunks(msg.strip())
 			for i in range(1, len(lines)):
 				lines[i] = (" " * 28) + lines[i]
 			return "\n".join(lines)
 
+		message = record.msg.replace(Fore.GREEN, "")
+		message = message.replace(Fore.RED, "")
+		message = message.replace(Fore.YELLOW, "")
+		message = message.replace(Style.RESET_ALL, "")
 
-		return "%s %s %s" % (datetime.now().strftime('%d-%m-%Y %H:%M:%S'), record.levelname.ljust(7), break_lines(record.msg))
+		return "%s %s %s" % (datetime.now().strftime('%d-%m-%Y %H:%M:%S'), record.levelname.ljust(7), message)
 
 hdlr = logger.StreamHandler(sys.stdout)
 hdlr.setFormatter(LoggingFormatter())

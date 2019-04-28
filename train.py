@@ -36,6 +36,8 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 
 	# Train the model
 
+	print hierarchy
+
 	for epoch in range(epoch_start, cf.MAX_EPOCHS + 1):
 		epoch_start_time = time.time()
 		epoch_losses = []	
@@ -49,14 +51,14 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 			bert_embs  = wordpieces_to_bert_embs(wordpieces, bc)
 
 
-			batch_x = bert_embs.to(device)
+			bert_embs = bert_embs.to(device)
 			batch_y = batch_y.float().to(device)
 
 			# 3. Feed these Bert vectors to our model
 			model.zero_grad()
 			model.train()
 
-			loss = model.calculate_loss(model(batch_x), batch_y)
+			loss = model.calculate_loss(model(bert_embs), batch_y, batch_x)
 
 			# 4. Backpropagate
 			loss.backward()
@@ -71,7 +73,7 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 
 		progress_bar.draw_completed_epoch(avg_loss, avg_loss_list, epoch, epoch_start_time)
 
-		modelEvaluator.evaluate_every_n_epochs(5, epoch)
+		modelEvaluator.evaluate_every_n_epochs(10, epoch)
 
 
 def main():

@@ -82,6 +82,9 @@ class CategoryHierarchy():
 	def __len__(self):
 		return len(self.categories)
 
+	def __repr__(self):
+		return "\n".join(["%d: %s" % (i, category) for i, category in enumerate(self.categories)])
+
 	# Retrieve all categories in the hierarchy.
 	def get_categories(self):
 		if type(self.categories) == set:

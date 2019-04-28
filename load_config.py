@@ -42,11 +42,14 @@ class Config():
 
 		self.MAX_EPOCHS = cf['max_epochs']
 		self.LEARNING_RATE = cf['learning_rate']
+		self.BATCH_SIZE = cf['batch_size']
 		self.MAX_SENT_LEN = cf['max_sent_len']
 		self.STOP_CONDITION = cf['stop_condition'] # Stop after this many epochs with no f1 improvement
+		self.MAX_SENTS = cf['max_sents']
+
 
 		self.TRAIN_FILENAME = check_filename_exists("data/datasets/%s/train.json" % cf['dataset'])
-		self.TEST_FILENAME  = check_filename_exists("data/datasets/%s/train.json" % cf['dataset'])
+		self.TEST_FILENAME  = check_filename_exists("data/datasets/%s/test.json" % cf['dataset'])
 
 		self.MODEL_FOLDER 				= initialise_folder("models/%s" % cf['model'], "model")
 		self.MODEL_DATASET_FOLDER 		= initialise_folder("models/%s/%s" % (cf['model'], cf['dataset']), "model+dataset")

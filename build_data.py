@@ -35,18 +35,16 @@ class Sentence():
 		self.mentions = self.get_mentions_vector(self.labels)
 		self.wordpieces, self.token_idxs_to_wp_idxs = self.get_wordpieces(tokens)
 
-		if len(self.wordpieces) > MAX_SENT_LEN:
-			logger.debug("A sentence in the dataset exceeds MAX_SENT_LEN (%d): %s" % (MAX_SENT_LEN, " ".join(self.wordpieces)))
+		#if len(self.wordpieces) > MAX_SENT_LEN:
+		#	logger.debug("A sentence in the dataset exceeds MAX_SENT_LEN (%d): %s" % (MAX_SENT_LEN, " ".join(self.wordpieces)))
 
 		self.wordpiece_labels = self.get_wordpiece_labels(self.wordpieces, self.labels, self.token_idxs_to_wp_idxs)
 
 		# Pad the wordpieces and wordpiece labels so that the DataLoader interprets them correctly.
 		self.pad_wordpieces()
 		self.pad_wordpiece_labels()
-
 		self.pad_tokens()
 		self.pad_labels()
-
 		self.pad_token_map()
 
 		self.wordpiece_mentions = self.get_mentions_vector(self.wordpiece_labels)
@@ -60,6 +58,8 @@ class Sentence():
 		# Generate the token indexes and wordpiece indexes.
 		self.token_indexes = [word_vocab.token_to_ix[token] for token in self.tokens]
 		self.wordpiece_indexes = [wordpiece_vocab.token_to_ix[wordpiece] for wordpiece in self.wordpieces]
+
+
 
 
 	# Transforms a list of original tokens into a list of wordpieces using the Bert tokenizer.
@@ -133,7 +133,7 @@ class Sentence():
 
 	# Returns True when this sentence is valid (i.e. its length is <= MAX_SENT_LEN.)
 	def is_valid(self):
-		return len(self.wordpieces) <= MAX_SENT_LEN
+		return len(self.wordpieces) == MAX_SENT_LEN and len(self.wordpiece_labels) == MAX_SENT_LEN
 
 	# Print out a summary of the sentence.
 	def __repr__(self):
@@ -157,11 +157,13 @@ def build_hierarchy(filepaths):
 	hierarchy = CategoryHierarchy()
 	for filepath in filepaths:
 		with jsonlines.open(filepath, "r") as reader:
-			for line in reader:
+			for i, line in enumerate(reader):
 				for m in line['mentions']:
 					labels = set(m['labels'])
 					for l in labels:
 						hierarchy.add_category(l)
+				if i >= cf.MAX_SENTS:
+					break
 	hierarchy.freeze_categories() # Convert the set to a list, and sort it
 	logger.info("Category hierarchy contains %d categories." % len(hierarchy))
 
@@ -178,14 +180,18 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 			tokens = [w for w in line['tokens']]			
 			labels = [[0] * len(hierarchy) for x in range(len(tokens))]
 			for m in line['mentions']:
-				for i in range(m['start'], m['end']):
+				for i in range(m['start'], m['end']):					
 					labels[i] = hierarchy.categories2onehot(m['labels'])
 			sent = Sentence(tokens, labels, word_vocab, wordpiece_vocab)
 			if sent.is_valid():
 				sentences.append(sent)
+				#if ds_name == "test":
+				#	print sent
 			else:
 				invalid_sentences_count += 1
 			total_sents += 1
+			if total_sents >= cf.MAX_SENTS:
+				break
 
 	# If any sentences are invalid, log a warning message.
 	if invalid_sentences_count > 0:
@@ -229,7 +235,7 @@ def main(asset_path):
 	for ds_name, filepath in dataset_filenames.items():
 		logger.info("Loading %s dataset from %s." % (ds_name, filepath))
 		dataset, sentences = build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name)
-		data_loader = DataLoader(dataset, batch_size=3, pin_memory=True)
+		data_loader = DataLoader(dataset, batch_size=cf.BATCH_SIZE, pin_memory=True)
 		data_loaders[ds_name] = data_loader
 		logger.info("The %s dataset was built successfully." % ds_name)
 
