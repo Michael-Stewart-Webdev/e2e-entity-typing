@@ -37,9 +37,13 @@ class ModelEvaluator():
 		macro_f1_scores = []
 
 		filtered_micro_f1_scores = []	# f1 scores where the non-entities have been removed prior to calculation of f1 score
-		filtered_macro_f1_scores = []	
+		filtered_macro_f1_scores = []
 
+		predictable_micro_f1_scores = []	# f1 scores of labels that appear in the training set
+		predictable_macro_f1_scores = []	
 
+		filtered_predictable_micro_f1_scores = []	# f1 scores of labels that appear in the training set, filtered as above
+		filtered_predictable_macro_f1_scores = []	
 	
 		for (i, (batch_x, batch_y, batch_z, _, batch_tx, batch_ty, batch_tm)) in enumerate(self.test_loader):
 
@@ -51,13 +55,12 @@ class ModelEvaluator():
 
 			bert_embs = bert_embs.to(device)
 			batch_y = batch_y.float().to(device)
-			batch_z = batch_z.float().to(device)
 
 			# 3. Build the token to wordpiece mapping using batch_tm, built during the build_data stage.
 			token_idxs_to_wp_idxs = build_token_to_wp_mapping(batch_tm)
 
 			# 4. Retrieve the token predictions for this batch, from the model.
-			token_preds = self.model.predict_token_labels(bert_embs, self.hierarchy.hierarchy_matrix, token_idxs_to_wp_idxs)
+			token_preds = self.model.predict_token_labels(bert_embs, token_idxs_to_wp_idxs)
 		
 			# 5. Determine the micro and macro f1 scores for each sentence
 
@@ -71,16 +74,39 @@ class ModelEvaluator():
 			macro_f1_scores.append(f1_score(batch_ty_r, token_preds_r, average="macro"))
 
 			# Filter out any completely-zero rows in batch_ty, i.e. the words that are not entities
+			
 			nonzeros = torch.nonzero(batch_ty_r)
-			indexes = torch.index_select(nonzeros, dim=1, index=torch.tensor([0])).view(-1)
-			indexes = torch.unique(indexes)
-			f_batch_ty = batch_ty_r[indexes]
-			f_token_preds = token_preds_r[indexes]
+			
+			if nonzeros.size()[0] > 0:	# Ignore batches that have no entities in them at all			
 
-			# Calculate the micro f1 and macro f1 scores with the filtered rows removed, i.e.
-			# only over the mentions
-			filtered_micro_f1_scores.append(f1_score(f_batch_ty, f_token_preds, average="micro"))
-			filtered_macro_f1_scores.append(f1_score(f_batch_ty, f_token_preds, average="macro"))
+				indexes = torch.index_select(nonzeros, dim=1, index=torch.tensor([0])).view(-1)
+				indexes = torch.unique(indexes)
+				f_batch_ty = batch_ty_r[indexes]
+				f_token_preds = token_preds_r[indexes]
+
+				# Calculate the micro f1 and macro f1 scores with the filtered rows removed, i.e.
+				# only over the mentions
+				filtered_micro_f1_scores.append(f1_score(f_batch_ty, f_token_preds, average="micro"))
+				filtered_macro_f1_scores.append(f1_score(f_batch_ty, f_token_preds, average="macro"))
+
+				
+				# Calculate the micro f1 and macro f1 scores for labels appearing in the training dataset (ignore those unique to the test set).
+				p_batch_ty = batch_ty_r[:, self.hierarchy.train_category_ids]
+				p_token_preds = token_preds_r[:, self.hierarchy.train_category_ids]	
+				
+				predictable_micro_f1_scores.append(f1_score(p_batch_ty, p_token_preds, average="micro"))
+				predictable_macro_f1_scores.append(f1_score(p_batch_ty, p_token_preds, average="macro"))
+
+
+				# Calculate the micro f1 and macro f1 scores for labels appearing in the training dataset (ignore those unique to the test set).
+				# Filter as above.
+
+				pf_batch_ty 	= f_batch_ty[:, self.hierarchy.train_category_ids]
+				pf_token_preds =  f_token_preds[:, self.hierarchy.train_category_ids]
+							
+				filtered_predictable_micro_f1_scores.append(f1_score(pf_batch_ty, pf_token_preds, average="micro"))
+				filtered_predictable_macro_f1_scores.append(f1_score(pf_batch_ty, pf_token_preds, average="macro"))
+				
 
 			# For the first batch, print a classification report and a visual demonstration of a tagged sentence.			
 			if i == 0:
@@ -96,10 +122,18 @@ class ModelEvaluator():
 		filtered_micro_f1 = sum(filtered_micro_f1_scores) / len(filtered_micro_f1_scores)
 		filtered_macro_f1 = sum(filtered_macro_f1_scores) / len(filtered_macro_f1_scores)
 
-		logger.info("           Micro F1: %.4f\tMacro F1: %.4f" % (micro_f1, macro_f1))
-		logger.info("(Filtered) Micro F1: %.4f\tMacro F1: %.4f" % (filtered_micro_f1, filtered_macro_f1))
+		predictable_micro_f1 = sum(predictable_micro_f1_scores) / len(predictable_micro_f1_scores)
+		predictable_macro_f1 = sum(predictable_macro_f1_scores) / len(predictable_macro_f1_scores)
 
-		return (micro_f1 + macro_f1 + filtered_micro_f1 + filtered_macro_f1) / 4
+		filtered_predictable_micro_f1 = sum(filtered_predictable_micro_f1_scores) / len(filtered_predictable_micro_f1_scores)
+		filtered_predictable_macro_f1 = sum(filtered_predictable_macro_f1_scores) / len(filtered_predictable_macro_f1_scores)
+
+		logger.info("                  Micro F1: %.4f\tMacro F1: %.4f" % (micro_f1, macro_f1))
+		logger.info("(Filtered)        Micro F1: %.4f\tMacro F1: %.4f" % (filtered_micro_f1, filtered_macro_f1))
+		logger.info("(Predictable)     Micro F1: %.4f\tMacro F1: %.4f" % (predictable_micro_f1, predictable_macro_f1))
+		logger.info("(F + Predictable) Micro F1: %.4f\tMacro F1: %.4f" % (filtered_predictable_micro_f1, filtered_predictable_macro_f1))
+
+		return (micro_f1 + macro_f1 + filtered_micro_f1 + filtered_macro_f1 + predictable_micro_f1 + predictable_macro_f1 + filtered_predictable_micro_f1 + filtered_predictable_macro_f1) / 8
 
 	# Get an example tagged sentence, returning it as a string.
 	# It resembles the following:

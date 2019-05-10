@@ -7,9 +7,9 @@
 	"learning_rate": 0.1,
 	"max_sent_len": 50,
 	"stop_condition": 50,
-	"max_train_sents": 15000,
-	"max_test_sents": 50,
-	"batch_size": 20,
+	"max_train_sents": 5000,
+	"max_test_sents": "all",
+	"batch_size": 5,
 	"model_options": {
 		"use_mention_layer": false,
 		"use_hierarchy": true

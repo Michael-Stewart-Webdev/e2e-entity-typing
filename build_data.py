@@ -161,8 +161,8 @@ def build_hierarchy(filepaths):
 				for m in line['mentions']:
 					labels = set(m['labels'])
 					for l in labels:
-						hierarchy.add_category(l)
-				if i >= cf.MAX_SENTS[ds_name]:
+						hierarchy.add_category(l, ds_name)
+				if type(cf.MAX_SENTS[ds_name]) == int and i >= cf.MAX_SENTS[ds_name]:
 					break
 	hierarchy.freeze_categories() # Convert the set to a list, and sort it
 	logger.info("Category hierarchy contains %d categories." % len(hierarchy))
@@ -179,7 +179,6 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 		for line in reader:
 			tokens = [w for w in line['tokens']]			
 			labels = [[0] * len(hierarchy) for x in range(len(tokens))]
-
 			for m in line['mentions']:
 				for i in range(m['start'], m['end']):					
 					labels[i] = hierarchy.categories2onehot(m['labels'])
@@ -191,7 +190,7 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 			else:
 				invalid_sentences_count += 1
 			total_sents += 1
-			if total_sents >= cf.MAX_SENTS[ds_name]:
+			if type(cf.MAX_SENTS[ds_name]) == int and total_sents >= cf.MAX_SENTS[ds_name]:
 				break
 
 	# If any sentences are invalid, log a warning message.
@@ -236,7 +235,6 @@ def main(asset_path):
 	for ds_name, filepath in dataset_filenames.items():
 		logger.info("Loading %s dataset from %s." % (ds_name, filepath))
 		dataset, sentences = build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name)
-
 		data_loader = DataLoader(dataset, batch_size=cf.BATCH_SIZE, pin_memory=True)
 		data_loaders[ds_name] = data_loader
 		logger.info("The %s dataset was built successfully." % ds_name)
