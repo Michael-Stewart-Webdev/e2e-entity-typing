@@ -32,6 +32,9 @@ def check_filename_exists(filename):
 
 # Dump the config object to a file.
 
+def options_to_text(options):
+	return "[" + ", ".join(["%s = %s" % (option, value) for option, value in options.items()]) + "]"
+
 
 # A config object designed to simplify the process of referring to filenames/folders across multiple locations.
 class Config():
@@ -47,13 +50,13 @@ class Config():
 		self.STOP_CONDITION = cf['stop_condition'] # Stop after this many epochs with no f1 improvement
 		self.MAX_SENTS = {"train": cf['max_train_sents'], "test": cf['max_test_sents']}
 
-
+		self.MODEL_OPTIONS = cf['model_options']
 
 		self.TRAIN_FILENAME = check_filename_exists("data/datasets/%s/train.json" % cf['dataset'])
 		self.TEST_FILENAME  = check_filename_exists("data/datasets/%s/test.json" % cf['dataset'])
 
-		self.MODEL_FOLDER 			= initialise_folder("models/%s" % cf['model'], "model")
-		self.MODEL_DATASET_FOLDER 		= initialise_folder("models/%s/%s_[%s train, %s test]" % (cf['model'], cf['dataset'], self.MAX_SENTS["train"], self.MAX_SENTS["test"]), "model+dataset")
+		self.MODEL_FOLDER 			= initialise_folder("models/%s_%s" % (cf['model'], options_to_text(self.MODEL_OPTIONS)), "model")
+		self.MODEL_DATASET_FOLDER 	= initialise_folder("%s/%s_[%s train, %s test]" % (self.MODEL_FOLDER, cf['model'], cf['dataset'], self.MAX_SENTS["train"], self.MAX_SENTS["test"]), "model+dataset")
 		self.DEBUG_FOLDER 			= initialise_folder("%s/debug" % (self.MODEL_DATASET_FOLDER), "asset")
 		self.ASSET_FOLDER 			= initialise_folder("%s/asset" % (self.MODEL_DATASET_FOLDER), "asset")
 		self.BEST_MODEL_FOLDER 			= initialise_folder("%s/best_model" % (self.MODEL_DATASET_FOLDER), "best model")
