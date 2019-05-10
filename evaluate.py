@@ -51,12 +51,13 @@ class ModelEvaluator():
 
 			bert_embs = bert_embs.to(device)
 			batch_y = batch_y.float().to(device)
+			batch_z = batch_z.float().to(device)
 
 			# 3. Build the token to wordpiece mapping using batch_tm, built during the build_data stage.
 			token_idxs_to_wp_idxs = build_token_to_wp_mapping(batch_tm)
 
 			# 4. Retrieve the token predictions for this batch, from the model.
-			token_preds = self.model.predict_token_labels(bert_embs, token_idxs_to_wp_idxs)
+			token_preds = self.model.predict_token_labels(bert_embs, self.hierarchy.hierarchy_matrix, token_idxs_to_wp_idxs)
 		
 			# 5. Determine the micro and macro f1 scores for each sentence
 

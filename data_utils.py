@@ -2,7 +2,9 @@ import pickle as pkl
 from torch.utils.data import Dataset
 from logger import logger
 import torch
-
+import codecs
+import numpy as np
+from load_config import device
 
 # Save an object to a pickle file and provide a message when complete.
 def save_obj_to_pkl_file(obj, obj_name, fname):
@@ -13,7 +15,7 @@ def save_obj_to_pkl_file(obj, obj_name, fname):
 
 # Save a list to a file, with each element on a newline.
 def save_list_to_file(ls, ls_name, fname):
-	with open(fname, 'w') as f:
+	with codecs.open(fname, 'w', 'utf-8') as f:
 		f.write("\n".join(ls))
 		logger.debug("Saved %s to %s." % (ls_name, fname))		
 
@@ -49,21 +51,44 @@ class EntityTypingDataset(Dataset):
 # May be initialised with a list, or built and then frozen with the freeze_categories() method.
 class CategoryHierarchy():
 
-	def __init__(self, categories=None):		
+	def __init__(self, categories=None):
+		self.hierarchy_matrix = None	
 		if categories:
 			self.categories = categories 
 			self.freeze_categories()
 		else:
-			self.categories = set()
+			self.categories = set()			
 
 	def add_category(self, category):
 		if type(self.categories) == tuple:
 			raise Exception("Cannot add more categories to the hierarchy after it has been frozen via freeze_categories().")
 		self.categories.add(category)
 
+	# Build the hierarchy matrix, e.g.
+	# "person/actor":  [1, 1, 0, 0, 0]
+	# "person/actor/shakespearian":  [1, 1, 1, 0, 0]
+	# "location": [0, 0, 0, 1, 0]
+	# "location/body_of_water": [0, 0, 0, 1, 1]
+	def build_hierarchy_matrix(self):
+		subcat2idx = {}
+		hierarchy_matrix = []
+		for category in self.categories:
+			subcats = category.split('/')[1:]
+			for subcat in subcats:
+				if subcat not in subcat2idx:
+					subcat2idx[subcat] = len(subcat2idx)
+			subcat_idxs = [subcat2idx[subcat] for subcat in subcats]
+			subcat_idxs_onehot = [0] * len(self.categories)
+			for subcat_idx in subcat_idxs:
+				subcat_idxs_onehot[subcat_idx] = 1
+			hierarchy_matrix.append(subcat_idxs_onehot)
+		return torch.from_numpy(np.asarray(hierarchy_matrix)).float().to(device)
+
 	# Freeze the hierarchy, converting it to a list and sorting it in alphabetical order.
+	# Also build the hierarchy matrix.
 	def freeze_categories(self):
 		self.categories = tuple(sorted(self.categories))
+		self.hierarchy_matrix = self.build_hierarchy_matrix()
 		self.category2idx = {self.categories[i] : i for i in range(len(self.categories)) }
 
 	def get_category_index(self, category):

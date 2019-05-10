@@ -1,5 +1,5 @@
 {
-	"dataset": "ontonotes",
+	"dataset": "figer",
 	"model": "test_model",
 	"embedding_dim": 768,
 	"hidden_dim": 300,
@@ -7,7 +7,11 @@
 	"learning_rate": 0.1,
 	"max_sent_len": 50,
 	"stop_condition": 50,
-	"max_train_sents": 500,
-	"max_test_sents": 100,
-	"batch_size": 5
+	"max_train_sents": 15000,
+	"max_test_sents": 50,
+	"batch_size": 20,
+	"model_options": {
+		"use_mention_layer": false,
+		"use_hierarchy": true
+	}
 }

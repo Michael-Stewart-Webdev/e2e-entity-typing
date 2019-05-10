@@ -5,8 +5,10 @@ from load_config import device
 
 torch.manual_seed(123)
 
+
+
 class E2EETModel(nn.Module):
-	def __init__(self, embedding_dim, hidden_dim, vocab_size, label_size ):
+	def __init__(self, embedding_dim, hidden_dim, vocab_size, label_size, model_options ):
 		super(E2EETModel, self).__init__()
 
 		self.embedding_dim = embedding_dim
@@ -18,11 +20,32 @@ class E2EETModel(nn.Module):
 
 		self.hidden2tag = nn.Linear(hidden_dim, label_size)
 
-	def forward(self, batch_x):
+		self.use_mention_layer = model_options['use_mention_layer']
+		self.use_hierarchy 	 = model_options['use_hierarchy']
+
+		if self.use_mention_layer:
+			self.layer_1_m = nn.Linear(embedding_dim, hidden_dim)
+			self.hidden2tag_m = nn.Linear(hidden_dim, 1)
+
+	def forward(self, batch_x, hierarchy_matrix):
 
 
-		batch_x = torch.relu(self.layer_1(batch_x))
-		y_hat = torch.sigmoid(self.hidden2tag(batch_x))
+
+		batch_x_out = torch.relu(self.layer_1(batch_x))
+		y_hat = self.hidden2tag(batch_x_out)
+
+		if self.use_mention_layer:
+			batch_x_out_m = torch.relu(self.layer_1_m(batch_x))
+			z_hat = torch.sigmoid(self.hidden2tag_m(batch_x_out_m))
+			#z_hat = z_hat.view(batch_x.size()[0], batch_x.size()[1])
+
+			y_hat = torch.mul(z_hat, y_hat)
+
+		if self.use_hierarchy:
+			y_hat_size = y_hat.size()
+			y_hat_v = y_hat.view(-1, hierarchy_matrix.size()[0])
+			y_hat =  torch.matmul(y_hat_v, hierarchy_matrix)
+			y_hat = y_hat.view(y_hat_size)
 
 		return y_hat
 
@@ -30,40 +53,22 @@ class E2EETModel(nn.Module):
 
 		
 
-	def calculate_loss(self, y_hat, batch_y, batch_x):
+	def calculate_loss(self, y_hat, batch_x, batch_y, batch_z):
 
-		#print "===="
-		#print batch_x
+		
 
-		#nonzeros = torch.nonzero(batch_x)
-		#indexes = torch.index_select(nonzeros, dim=1, index=torch.tensor([1]))#.view(-1)
-		#indexes = torch.unique(indexes)
-
-		#non_padding_indexes = torch.sum((batch_x > 0), 1) - 1
 		non_padding_indexes = torch.ByteTensor((batch_x > 0))
 
+		loss_fn = nn.BCEWithLogitsLoss()
 
-		#print batch_y
+		loss = loss_fn(y_hat[non_padding_indexes], batch_y[non_padding_indexes])
 
-		#print non_padding_indexes
+		#if self.use_mention_layer:
+		#	loss_fn = nn.BCELoss()
+		#	z_hat = z_hat.view(batch_x.size()[0], batch_x.size()[1])
+		#	loss += loss_fn(z_hat[non_padding_indexes], batch_z[non_padding_indexes])
 
-		#print batch_y[non_padding_indexes]
-
-		#print batch_y[non_padding_indexes].size()
-
-		#print mask
-		
-		#print torch.unique(nonzeros, False, False, 1)
-
-		#print batch_x[nonzeros]
-		#print y_hat.size()
-		#exit()
-		#print "===="
-
-
-		loss = nn.BCELoss()
-		return loss(y_hat[non_padding_indexes], batch_y[non_padding_indexes])
-
+		return loss
 
 
 	# Predict the labels of a batch of wordpieces using a threshold of 0.5.
@@ -80,8 +85,8 @@ class E2EETModel(nn.Module):
 
 	# Evaluate a given batch_x, but convert the predictions for each wordpiece into the predictions of each token using
 	# the token_idxs_to_wp_idxs map.
-	def predict_token_labels(self, batch_x, token_idxs_to_wp_idxs):
-		preds = self.forward(batch_x)
+	def predict_token_labels(self, batch_x, hierarchy_matrix, token_idxs_to_wp_idxs):
+		preds = self.forward(batch_x, hierarchy_matrix)
 
 		avg_preds = torch.zeros(list(batch_x.shape)[0], list(batch_x.shape)[1], list(preds.shape)[2])
 

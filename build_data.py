@@ -179,6 +179,7 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 		for line in reader:
 			tokens = [w for w in line['tokens']]			
 			labels = [[0] * len(hierarchy) for x in range(len(tokens))]
+
 			for m in line['mentions']:
 				for i in range(m['start'], m['end']):					
 					labels[i] = hierarchy.categories2onehot(m['labels'])
@@ -235,6 +236,7 @@ def main(asset_path):
 	for ds_name, filepath in dataset_filenames.items():
 		logger.info("Loading %s dataset from %s." % (ds_name, filepath))
 		dataset, sentences = build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name)
+
 		data_loader = DataLoader(dataset, batch_size=cf.BATCH_SIZE, pin_memory=True)
 		data_loaders[ds_name] = data_loader
 		logger.info("The %s dataset was built successfully." % ds_name)

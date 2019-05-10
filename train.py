@@ -36,14 +36,13 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 
 	# Train the model
 
-	print hierarchy
-
 	for epoch in range(epoch_start, cf.MAX_EPOCHS + 1):
 		epoch_start_time = time.time()
 		epoch_losses = []	
 
 		for (i, (batch_x, batch_y, batch_z, _, _, _, _)) in enumerate(data_loaders["train"]):
-
+			#if i > 1:
+			#	continue
 			# 1. Convert the batch_x from wordpiece ids into wordpieces
 			wordpieces = batch_to_wordpieces(batch_x, wordpiece_vocab)
 			
@@ -53,12 +52,15 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 
 			bert_embs = bert_embs.to(device)
 			batch_y = batch_y.float().to(device)
+			batch_z = batch_z.float().to(device)
 
 			# 3. Feed these Bert vectors to our model
 			model.zero_grad()
 			model.train()
 
-			loss = model.calculate_loss(model(bert_embs), batch_y, batch_x)
+			y_hat = model(bert_embs, hierarchy.hierarchy_matrix)
+
+			loss = model.calculate_loss(y_hat, batch_x, batch_y, batch_z)
 
 			# 4. Backpropagate
 			loss.backward()
@@ -87,7 +89,8 @@ def main():
 	model = E2EETModel(	embedding_dim = cf.EMBEDDING_DIM,
 						hidden_dim = cf.HIDDEN_DIM,
 						vocab_size = len(wordpiece_vocab),
-						label_size = len(hierarchy))
+						label_size = len(hierarchy),
+						model_options = cf.MODEL_OPTIONS)
 	model.cuda()
 
 	train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy)
