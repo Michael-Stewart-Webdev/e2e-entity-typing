@@ -60,7 +60,7 @@ class ModelEvaluator():
 			token_idxs_to_wp_idxs = build_token_to_wp_mapping(batch_tm)
 
 			# 4. Retrieve the token predictions for this batch, from the model.
-			token_preds = self.model.predict_token_labels(bert_embs, token_idxs_to_wp_idxs)
+			token_preds = self.model.predict_token_labels(bert_embs, self.hierarchy.hierarchy_matrix, token_idxs_to_wp_idxs)
 		
 			# 5. Determine the micro and macro f1 scores for each sentence
 

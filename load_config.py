@@ -56,7 +56,7 @@ class Config():
 		self.TEST_FILENAME  = check_filename_exists("data/datasets/%s/test.json" % cf['dataset'])
 
 		self.MODEL_FOLDER 			= initialise_folder("models/%s_%s" % (cf['model'], options_to_text(self.MODEL_OPTIONS)), "model")
-		self.MODEL_DATASET_FOLDER 	= initialise_folder("%s/%s_[%s train, %s test]" % (self.MODEL_FOLDER, cf['model'], cf['dataset'], self.MAX_SENTS["train"], self.MAX_SENTS["test"]), "model+dataset")
+		self.MODEL_DATASET_FOLDER 	= initialise_folder("%s/%s_[%s train, %s test]" % (self.MODEL_FOLDER, cf['dataset'], self.MAX_SENTS["train"], self.MAX_SENTS["test"]), "model+dataset")
 		self.DEBUG_FOLDER 			= initialise_folder("%s/debug" % (self.MODEL_DATASET_FOLDER), "asset")
 		self.ASSET_FOLDER 			= initialise_folder("%s/asset" % (self.MODEL_DATASET_FOLDER), "asset")
 		self.BEST_MODEL_FOLDER 			= initialise_folder("%s/best_model" % (self.MODEL_DATASET_FOLDER), "best model")
