@@ -55,6 +55,10 @@ class Config():
 		self.TRAIN_FILENAME = check_filename_exists("data/datasets/%s/train.json" % cf['dataset'])
 		self.TEST_FILENAME  = check_filename_exists("data/datasets/%s/test.json" % cf['dataset'])
 
+		self.FILTERED_TRAIN_FOLDER = initialise_folder("data/datasets/%s_filtered" % cf['dataset'], "filtered dataset")
+		self.FILTERED_TRAIN_VEC_FILENAME = self.FILTERED_TRAIN_FOLDER + "/train.vec"
+		self.FILTERED_TRAIN_FILENAME = self.FILTERED_TRAIN_FOLDER + "/train.json"
+
 		self.MODEL_FOLDER 			= initialise_folder("models/%s_%s" % (cf['model'], options_to_text(self.MODEL_OPTIONS)), "model")
 		self.MODEL_DATASET_FOLDER 	= initialise_folder("%s/%s_[%s train, %s test]" % (self.MODEL_FOLDER, cf['dataset'], self.MAX_SENTS["train"], self.MAX_SENTS["test"]), "model+dataset")
 		self.DEBUG_FOLDER 			= initialise_folder("%s/debug" % (self.MODEL_DATASET_FOLDER), "asset")

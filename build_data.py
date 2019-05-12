@@ -3,19 +3,16 @@ import sys
 import numpy as np
 import pickle as pkl
 
-sys.path.append('bert')
-import tokenization
 
 import codecs, jsonlines
 
 from logger import logger
 
 
-tokenizer = tokenization.FullTokenizer(
-    vocab_file='./data/bert/vocab.txt', do_lower_case=False)
+
 
 import data_utils as dutils
-from data_utils import Vocab, CategoryHierarchy, EntityTypingDataset
+from data_utils import Vocab, CategoryHierarchy, EntityTypingDataset, tokens_to_wordpieces
 
 from load_config import load_config
 cf = load_config()
@@ -62,23 +59,10 @@ class Sentence():
 
 
 
-	# Transforms a list of original tokens into a list of wordpieces using the Bert tokenizer.
-	# Returns two lists:
-	# - bert_tokens, the wordpieces corresponding to orig_tokens,
-	# - orig_to_token_map, which maps the indexes from orig_tokens to their positions in bert_tokens.
-	#   for example, if orig_tokens = ["hi", "michael"], and bert_tokens is ["[CLS]", "hi", "mich", "##ael", "[SEP]"],
-	#	then orig_to_token_map becomes [1, 2].
+	
 	def get_wordpieces(self, orig_tokens):
-		bert_tokens = []
-		orig_to_tok_map = []
-		bert_tokens.append("[CLS]")
-		for orig_token in orig_tokens:
-			word_pieces = tokenizer.tokenize(orig_token)
-			orig_to_tok_map.append(len(bert_tokens))# + x for x in range(len(word_pieces))])
-			bert_tokens.extend(word_pieces)
-		bert_tokens.append("[SEP]")
 		#print orig_to_tok_map, "<<<"
-		return bert_tokens, orig_to_tok_map
+		return tokens_to_wordpieces(orig_tokens)
 
 	# Pad the wordpieces to MAX_SENT_LEN
 	def pad_wordpieces(self):
