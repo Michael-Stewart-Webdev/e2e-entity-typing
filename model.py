@@ -18,7 +18,11 @@ class E2EETModel(nn.Module):
 
 		self.layer_1 = nn.Linear(embedding_dim, hidden_dim)
 
+		self.dropout = nn.Dropout()
+
 		self.hidden2tag = nn.Linear(hidden_dim, label_size)
+
+
 
 		self.use_mention_layer = model_options['use_mention_layer']
 		self.use_hierarchy 	 = model_options['use_hierarchy']
@@ -31,7 +35,9 @@ class E2EETModel(nn.Module):
 
 
 
-		batch_x_out = torch.relu(self.layer_1(batch_x))
+		#batch_x_out = torch.relu(self.layer_1(batch_x))
+		batch_x_out = self.layer_1(batch_x)
+		batch_x_out = self.dropout(batch_x_out)
 		y_hat = self.hidden2tag(batch_x_out)
 
 		if self.use_mention_layer:

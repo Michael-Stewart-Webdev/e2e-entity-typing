@@ -22,7 +22,8 @@ import collections
 import re
 import unicodedata
 import six
-import tensorflow as tf
+import codecs
+#import tensorflow as tf
 
 
 def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
@@ -122,7 +123,7 @@ def load_vocab(vocab_file):
   """Loads a vocabulary file into a dictionary."""
   vocab = collections.OrderedDict()
   index = 0
-  with tf.gfile.GFile(vocab_file, "r") as reader:
+  with codecs.open(vocab_file, "r", 'utf-8') as reader:
     while True:
       token = convert_to_unicode(reader.readline())
       if not token:

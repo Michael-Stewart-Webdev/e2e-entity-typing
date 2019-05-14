@@ -45,8 +45,8 @@ def build_vec_file():
 	# Pass through the dataset again, this time encoding each valid sentence via BERT.
 	with jsonlines.open(cf.TRAIN_FILENAME, "r") as reader:
 		for i, line in enumerate(reader):
-			if i > 20000:
-				continue
+			#if i > 2000:
+			#	continue
 
 			tokens = [w for w in line['tokens']]
 			bert_tokens = tokens_to_wordpieces(tokens)[0]
@@ -85,7 +85,7 @@ def build_vec_file():
 
 	logger.info("Built training sent embeddings.")
 
-def build_filtered_dataset(topn=50, max_train_docs_per_test_doc=20, threshold=0.9):
+def build_filtered_dataset(topn=200, max_train_docs_per_test_doc=100, threshold=0.9):
 	kv = KeyedVectors.load_word2vec_format(cf.FILTERED_TRAIN_VEC_FILENAME, binary=False)
 
 	bc = BertClient()

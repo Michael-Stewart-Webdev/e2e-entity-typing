@@ -174,7 +174,7 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 			else:
 				invalid_sentences_count += 1
 			total_sents += 1
-			if type(cf.MAX_SENTS[ds_name]) == int and total_sents >= cf.MAX_SENTS[ds_name]:
+			if type(cf.MAX_SENTS[ds_name]) == int and len(sentences) >= cf.MAX_SENTS[ds_name]:
 				break
 
 	# If any sentences are invalid, log a warning message.
