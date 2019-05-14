@@ -3,6 +3,8 @@ import torch.nn as nn
 #import torch.nn.functional as F
 from load_config import device
 
+from sklearn.cluster import KMeans
+
 torch.manual_seed(123)
 
 
@@ -27,6 +29,8 @@ class E2EETModel(nn.Module):
 		self.use_mention_layer = model_options['use_mention_layer']
 		self.use_hierarchy 	 = model_options['use_hierarchy']
 
+		self.dropout = nn.Dropout(p=0.5)
+
 		if self.use_mention_layer:
 			self.layer_1_m = nn.Linear(embedding_dim, hidden_dim)
 			self.hidden2tag_m = nn.Linear(hidden_dim, 1)
@@ -35,10 +39,11 @@ class E2EETModel(nn.Module):
 
 
 
-		#batch_x_out = torch.relu(self.layer_1(batch_x))
-		batch_x_out = self.layer_1(batch_x)
-		batch_x_out = self.dropout(batch_x_out)
+
+		batch_x_out = self.dropout(torch.relu(self.layer_1(batch_x)))
+		#batch_x_out = self.layer_1(batch_x)
 		y_hat = self.hidden2tag(batch_x_out)
+
 
 		if self.use_mention_layer:
 			batch_x_out_m = torch.relu(self.layer_1_m(batch_x))
@@ -54,6 +59,7 @@ class E2EETModel(nn.Module):
 			y_hat = y_hat.view(y_hat_size)
 
 		return y_hat
+		#return torch.sigmoid(y_hat)
 
 		# print batch_x.size(), batch_y.size()
 
@@ -80,7 +86,15 @@ class E2EETModel(nn.Module):
 	# Predict the labels of a batch of wordpieces using a threshold of 0.5.
 	def predict_labels(self, preds):
 		#print preds
-		hits  = (preds >= 0.5).float()
+		#print preds
+		#hits = torch.zeros(preds.size())
+		#for sent in preds:
+		#	if len(sent[sent > 0.1]) > 0:
+		#		kmeans = KMeans(n_clusters=2, random_state=0).fit([x for x in sent if x > 0])
+		#		print kmeans.labels_, len(kmeans.labels)
+				#hits[i] = kmeans.labels_
+		#exit()
+		hits  = (preds > 0.0).float()
 		return hits
 
 	# Evaluate a given batch_x, predicting the labels.

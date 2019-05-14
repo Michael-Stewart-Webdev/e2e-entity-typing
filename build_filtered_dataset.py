@@ -21,6 +21,8 @@ from gensim.models import KeyedVectors
 
 batch_size = 100
 
+from build_data import build_hierarchy
+
 '''
 
 				'''
@@ -163,10 +165,40 @@ def build_filtered_dataset(topn=200, max_train_docs_per_test_doc=100, threshold=
 	logger.info("Wrote filtered train set to %s." % cf.FILTERED_TRAIN_FILENAME)
 
 
-def main():
-	build_vec_file()
-	build_filtered_dataset()
 
+
+
+def build_filtered_hierarchy_dataset():
+	test_hierarchy = build_hierarchy({ "test": cf.TEST_FILENAME })
+
+	filtered_train_set = []
+
+	with jsonlines.open(cf.TRAIN_FILENAME, "r") as reader:
+		for i, line in enumerate(reader):
+			valid_line = True
+			for m in line['mentions']:
+				for label in m['labels']:					
+					if label not in set(test_hierarchy.get_categories()):
+						valid_line = False
+
+			if valid_line:				
+				filtered_train_set.append(line)
+				sys.stdout.write("\r%d processed, %d valid" % (i, len(filtered_train_set)))
+				sys.stdout.flush()
+
+	print ""
+	logger.info("Filtered train set contains %d documents." % len(filtered_train_set))
+
+	with jsonlines.open(cf.FILTERED_HIERARCHY_TRAIN_FILENAME, 'w') as writer:
+		writer.write_all(filtered_train_set)
+
+	logger.info("Wrote filtered train set to %s." % cf.FILTERED_HIERARCHY_TRAIN_FILENAME)
+
+
+def main():
+	#build_vec_file()
+	#build_filtered_dataset()
+	build_filtered_hierarchy_dataset()
 	
 
 
