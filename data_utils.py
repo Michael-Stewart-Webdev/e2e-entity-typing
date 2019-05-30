@@ -84,6 +84,11 @@ class CategoryHierarchy():
 		self.hierarchy_matrix = None
 		
 		self.train_category_ids = []
+
+		self.category_counts = {
+			"train": {},
+			"test": {}
+		}
 				
 
 	# Build the hierarchy matrix, e.g.
@@ -95,38 +100,60 @@ class CategoryHierarchy():
 		subcat2idx = {}
 		hierarchy_matrix = []
 		for category in self.categories:
-			subcats = category.split('/')[1:]
-			for subcat in subcats:
-				if subcat not in subcat2idx:
-					subcat2idx[subcat] = len(subcat2idx)
-			subcat_idxs = [subcat2idx[subcat] for subcat in subcats]
+			splitcats = category.split('/')
+			parent = splitcats[1]
+			subcats = splitcats[1:]
+			for i in range(len(subcats)):
+				sc = "/".join(subcats[:i+1])
+				if sc not in subcat2idx:
+					subcat2idx[sc] = len(subcat2idx)
+			subcat_idxs = [subcat2idx["/".join(subcats[:i+1])] for i in range(len(subcats))]
 			subcat_idxs_onehot = [0] * len(self.categories)
 			for subcat_idx in subcat_idxs:
 				subcat_idxs_onehot[subcat_idx] = 1
 			hierarchy_matrix.append(subcat_idxs_onehot)
+
+		for i, row in enumerate(hierarchy_matrix):
+			print self.categories[i].ljust(40), row[:30]
+
+		print self.categories
 		return torch.from_numpy(np.asarray(hierarchy_matrix)).float().to(device)
 
 	def get_categories_unique_to_test_dataset(self):
 		return [c for c in self.categories_segmented['test'] if c not in self.categories_segmented['train']]
 
+	def get_overlapping_category_ids(self):
+		return [self.category2idx[c] for c in self.get_overlapping_categories()]
+
+	def get_overlapping_categories(self):
+		train_set = set(self.categories_segmented['train'])
+		return sorted([c for c in self.categories_segmented['test'] if c in train_set])
 
 	def add_category(self, category, ds_name):
 		if type(self.categories) == tuple:
 			raise Exception("Cannot add more categories to the hierarchy after it has been frozen via freeze_categories().")
 		self.categories.add(category)
 		self.categories_segmented[ds_name].add(category)
+		if category in self.category_counts[ds_name]:
+			self.category_counts[ds_name][category] += 1
+		else:
+			self.category_counts[ds_name][category] = 1
+
+	def get_train_category_counts(self):
+		return [self.category_counts['train'][category] if category in self.category_counts['train'] else 0 for category in self.categories ]
 
 	# Freeze the hierarchy, converting it to a list and sorting it in alphabetical order.
 	def freeze_categories(self):
 		self.categories = tuple(sorted(self.categories))
 		self.hierarchy_matrix = self.build_hierarchy_matrix()
 		self.category2idx = {self.categories[i] : i for i in range(len(self.categories)) }
-		self.category_ids = sorted([self.category2idx[i] for i in self.categories])
+		self.category_ids = sorted([self.category2idx[c] for c in self.categories])
 		self.train_category_ids = sorted([self.category2idx[i] for i in self.categories_segmented['train']])
 		self.test_category_ids = sorted([self.category2idx[i] for i in self.categories_segmented['test']])
 		logger.info("Hierarchy contains %d categories total. [%d train, %d test]" % (len(self.categories), len(self.categories_segmented['train']), len(self.categories_segmented['test'])))
 		self.unique_test_categories = self.get_categories_unique_to_test_dataset()
 		logger.info("%d categories are unique to the test dataset." % len(self.unique_test_categories))	
+		logger.info("%d categories are present in both train and test datasets." % len(self.get_overlapping_category_ids()))	
 		
 
 	def get_category_index(self, category):

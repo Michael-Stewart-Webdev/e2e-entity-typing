@@ -10,7 +10,7 @@ torch.manual_seed(123)
 
 
 class E2EETModel(nn.Module):
-	def __init__(self, embedding_dim, hidden_dim, vocab_size, label_size, model_options ):
+	def __init__(self, embedding_dim, hidden_dim, vocab_size, label_size, model_options, total_wordpieces, category_counts, hierarchy_matrix):
 		super(E2EETModel, self).__init__()
 
 		self.embedding_dim = embedding_dim
@@ -29,13 +29,25 @@ class E2EETModel(nn.Module):
 		self.use_mention_layer = model_options['use_mention_layer']
 		self.use_hierarchy 	 = model_options['use_hierarchy']
 
+		print "Use hierarchy:", self.use_hierarchy
+
 		self.dropout = nn.Dropout(p=0.5)
 
 		if self.use_mention_layer:
 			self.layer_1_m = nn.Linear(embedding_dim, hidden_dim)
 			self.hidden2tag_m = nn.Linear(hidden_dim, 1)
 
-	def forward(self, batch_x, hierarchy_matrix):
+		category_weights = [((total_wordpieces - c * 1.0) / (c)) if c > 0 else 0  for c in category_counts]
+		print category_counts
+		print category_weights
+
+		self.pos_weights = torch.tensor(category_weights).to(device)
+		self.pos_weights.requires_grad = False
+
+		#self.hierarchy_matrix = torch.nn.Parameter(hierarchy_matrix)
+		self.hierarchy_matrix = hierarchy_matrix
+
+	def forward(self, batch_x):
 
 
 
@@ -54,14 +66,18 @@ class E2EETModel(nn.Module):
 
 		if self.use_hierarchy:
 			y_hat_size = y_hat.size()
-			y_hat_v = y_hat.view(-1, hierarchy_matrix.size()[0])
-			y_hat =  torch.matmul(y_hat_v, hierarchy_matrix)
+			y_hat_v = y_hat.view(-1, self.hierarchy_matrix.size()[0])
+			y_hat =  torch.matmul(y_hat_v, self.hierarchy_matrix)
 			y_hat = y_hat.view(y_hat_size)
+
 
 		return y_hat
 		#return torch.sigmoid(y_hat)
 
 		# print batch_x.size(), batch_y.size()
+
+
+
 
 		
 
@@ -71,7 +87,7 @@ class E2EETModel(nn.Module):
 
 		non_padding_indexes = torch.ByteTensor((batch_x > 0))
 
-		loss_fn = nn.BCEWithLogitsLoss()
+		loss_fn = nn.BCEWithLogitsLoss()#pos_weight=self.pos_weights)
 
 		loss = loss_fn(y_hat[non_padding_indexes], batch_y[non_padding_indexes])
 
@@ -105,8 +121,8 @@ class E2EETModel(nn.Module):
 
 	# Evaluate a given batch_x, but convert the predictions for each wordpiece into the predictions of each token using
 	# the token_idxs_to_wp_idxs map.
-	def predict_token_labels(self, batch_x, hierarchy_matrix, token_idxs_to_wp_idxs):
-		preds = self.forward(batch_x, hierarchy_matrix)
+	def predict_token_labels(self, batch_x, token_idxs_to_wp_idxs):
+		preds = self.forward(batch_x)
 
 		avg_preds = torch.zeros(list(batch_x.shape)[0], list(batch_x.shape)[1], list(preds.shape)[2])
 

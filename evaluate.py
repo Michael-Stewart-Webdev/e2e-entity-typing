@@ -1,16 +1,17 @@
+import data_utils as dutils
 from load_config import load_config, device
 cf = load_config()
 from logger import logger
 import torch, json, sys
 from data_utils import batch_to_wordpieces, wordpieces_to_bert_embs, build_token_to_wp_mapping
 
-from sklearn.metrics import f1_score, classification_report
+from sklearn.metrics import f1_score, classification_report, accuracy_score
 
 from colorama import Fore, Back, Style
 
 import random
 
-
+import nfgec_evaluate
 
 
 class ModelEvaluator():
@@ -31,20 +32,14 @@ class ModelEvaluator():
 
 		self.model.zero_grad()
 		self.model.eval()
-
-
-		micro_f1_scores = []
-		macro_f1_scores = []
-
-		filtered_micro_f1_scores = []	# f1 scores where the non-entities have been removed prior to calculation of f1 score
-		filtered_macro_f1_scores = []
-
-		predictable_micro_f1_scores = []	# f1 scores of labels that appear in the training set
-		predictable_macro_f1_scores = []	
-
-		filtered_predictable_micro_f1_scores = []	# f1 scores of labels that appear in the training set, filtered as above
-		filtered_predictable_macro_f1_scores = []	
+		
 	
+		all_tys   = None
+		all_preds = None
+
+		
+		
+
 		for (i, (batch_x, batch_y, batch_z, _, batch_tx, batch_ty, batch_tm)) in enumerate(self.test_loader):
 
 			# 1. Convert the batch_x from wordpiece ids into wordpieces
@@ -59,79 +54,141 @@ class ModelEvaluator():
 			# 3. Build the token to wordpiece mapping using batch_tm, built during the build_data stage.
 			token_idxs_to_wp_idxs = build_token_to_wp_mapping(batch_tm)
 
+
+			non_padding_indexes = torch.ByteTensor((batch_tx > 0))
+
+
 			# 4. Retrieve the token predictions for this batch, from the model.
-			token_preds = self.model.predict_token_labels(bert_embs, self.hierarchy.hierarchy_matrix, token_idxs_to_wp_idxs)
+			token_preds = self.model.predict_token_labels(bert_embs, token_idxs_to_wp_idxs)
+
+			#print token_preds, "<TP", len(token_preds)
+			token_preds = token_preds[non_padding_indexes]
+			
+			batch_tx = batch_tx[non_padding_indexes]
+			batch_ty = batch_ty[non_padding_indexes]
+
+		
 		
 			# 5. Determine the micro and macro f1 scores for each sentence
 
 			# token_preds_r and batch_ty_r are 'reshaped' versions of token_preds and batch_ty.
 			# They are essentially 'flattened' versions of token_preds and batch_ty, i.e. a 2d tensor
 			# of dim [max_sent_len, hierarchy_size].
-			token_preds_r = token_preds.view(token_preds.shape[0] * token_preds.shape[1], -1)
-			batch_ty_r    = batch_ty.view(batch_ty.shape[0] * batch_ty.shape[1], -1)
+			#token_preds_r = token_preds.view(token_preds.shape[0] * token_preds.shape[1], -1)
+			#batch_ty_r    = batch_ty.view(batch_ty.shape[0] * batch_ty.shape[1], -1)
 
-			micro_f1_scores.append(f1_score(batch_ty_r, token_preds_r, average="micro"))
-			macro_f1_scores.append(f1_score(batch_ty_r, token_preds_r, average="macro"))
-
-			# Filter out any completely-zero rows in batch_ty, i.e. the words that are not entities
 			
-			nonzeros = torch.nonzero(batch_ty_r)
 			
-			if nonzeros.size()[0] > 0:	# Ignore batches that have no entities in them at all			
+			
 
-				indexes = torch.index_select(nonzeros, dim=1, index=torch.tensor([0])).view(-1)
-				indexes = torch.unique(indexes)
-				f_batch_ty = batch_ty_r[indexes]
-				f_token_preds = token_preds_r[indexes]
+			
+			#micro_f1_scores.append(f1_score(batch_ty_r, token_preds_r, average="micro"))
+			#macro_f1_scores.append(f1_score(batch_ty_r, token_preds_r, average="macro"))
 
-				# Calculate the micro f1 and macro f1 scores with the filtered rows removed, i.e.
-				# only over the mentions
-				filtered_micro_f1_scores.append(f1_score(f_batch_ty, f_token_preds, average="micro"))
-				filtered_macro_f1_scores.append(f1_score(f_batch_ty, f_token_preds, average="macro"))
+			
+			
 
-				
-				# Calculate the micro f1 and macro f1 scores for labels appearing in the training dataset (ignore those unique to the test set).
-				p_batch_ty = batch_ty_r[:, self.hierarchy.train_category_ids]
-				p_token_preds = token_preds_r[:, self.hierarchy.train_category_ids]	
-				
-				predictable_micro_f1_scores.append(f1_score(p_batch_ty, p_token_preds, average="micro"))
-				predictable_macro_f1_scores.append(f1_score(p_batch_ty, p_token_preds, average="macro"))
+			if all_tys is None:
+				all_tys = batch_ty
+			else:
+				all_tys    = torch.cat((all_tys, batch_ty))
 
+			if all_preds is None:
+				all_preds = token_preds
+			else:
+				all_preds = torch.cat((all_preds, token_preds))
 
-				# Calculate the micro f1 and macro f1 scores for labels appearing in the training dataset (ignore those unique to the test set).
-				# Filter as above.
-
-				pf_batch_ty 	= f_batch_ty[:, self.hierarchy.train_category_ids]
-				pf_token_preds =  f_token_preds[:, self.hierarchy.train_category_ids]
-							
-				filtered_predictable_micro_f1_scores.append(f1_score(pf_batch_ty, pf_token_preds, average="micro"))
-				filtered_predictable_macro_f1_scores.append(f1_score(pf_batch_ty, pf_token_preds, average="macro"))
-				
-
-			# For the first batch, print a classification report and a visual demonstration of a tagged sentence.			
 			if i == 0:
-				logger.info("\n" + classification_report(batch_ty_r, token_preds_r, target_names=self.hierarchy.categories))
 				logger.info("\n" + self.get_tagged_sent_example(batch_tx, token_preds, batch_ty))
+			
 
-			print "\rCalculating F1 scores for batch %d/%d..." % (i + 1, len(self.test_loader)),
-		print ""
 
-		micro_f1 = sum(micro_f1_scores) / len(micro_f1_scores)
-		macro_f1 = sum(macro_f1_scores) / len(macro_f1_scores)
+		true_and_prediction = []
+		# Convert all one-hot to categories
 
-		filtered_micro_f1 = sum(filtered_micro_f1_scores) / len(filtered_micro_f1_scores)
-		filtered_macro_f1 = sum(filtered_macro_f1_scores) / len(filtered_macro_f1_scores)
 
-		predictable_micro_f1 = sum(predictable_micro_f1_scores) / len(predictable_micro_f1_scores)
-		predictable_macro_f1 = sum(predictable_macro_f1_scores) / len(predictable_macro_f1_scores)
+		
 
-		filtered_predictable_micro_f1 = sum(filtered_predictable_micro_f1_scores) / len(filtered_predictable_micro_f1_scores)
-		filtered_predictable_macro_f1 = sum(filtered_predictable_macro_f1_scores) / len(filtered_predictable_macro_f1_scores)
+		acc = accuracy_score(all_tys, all_preds)
+		micro_f1 = f1_score(all_tys, all_preds, average="micro")
+		macro_f1 = f1_score(all_tys, all_preds, average="macro")
 
-		logger.info("                  Micro F1: %.4f\tMacro F1: %.4f" % (micro_f1, macro_f1))
-		logger.info("(Filtered)        Micro F1: %.4f\tMacro F1: %.4f" % (filtered_micro_f1, filtered_macro_f1))
-		logger.info("(Predictable)     Micro F1: %.4f\tMacro F1: %.4f" % (predictable_micro_f1, predictable_macro_f1))
-		logger.info("(F + Predictable) Micro F1: %.4f\tMacro F1: %.4f" % (filtered_predictable_micro_f1, filtered_predictable_macro_f1))
+		# Filter out any completely-zero rows in batch_ty, i.e. the words that are not entities
+		nonzeros = torch.nonzero(all_tys)
+		indexes = torch.index_select(nonzeros, dim=1, index=torch.tensor([0])).view(-1)
+		indexes = torch.unique(indexes)
+		filtered_tys = all_tys[indexes]
+		filtered_preds = all_preds[indexes]
+
+		filtered_acc = accuracy_score(filtered_tys, filtered_preds)
+		filtered_micro_f1 = f1_score(filtered_tys, filtered_preds, average="micro")
+		filtered_macro_f1 = f1_score(filtered_tys, filtered_preds, average="macro")
+
+		# Predictable: only considers labels that appear in the test hierarchy. A category is not 'predictable' if it only appears in the training hierarchy.
+		overlapping_category_ids = self.hierarchy.get_overlapping_category_ids()
+
+		predictable_tys = all_tys[:, overlapping_category_ids]
+		predictable_preds = all_preds[:, overlapping_category_ids]
+
+		predictable_acc = accuracy_score(predictable_tys, predictable_preds)
+		predictable_micro_f1 = f1_score(predictable_tys, predictable_preds, average="micro")
+		predictable_macro_f1 = f1_score(predictable_tys, predictable_preds, average="macro")
+
+		# Predictable: only considers labels that appear in the training hierarchy, not those that are unique to the test hierarchy
+		#test_only_tys = all_tys[:, self.hierarchy.test_category_ids]
+		#test_only_preds = all_preds[:, self.hierarchy.test_category_ids]
+
+		#test_only_micro_f1 = f1_score(test_only_tys, test_only_preds, average="micro")
+		#test_only_macro_f1 = f1_score(test_only_tys, test_only_preds, average="macro")
+
+		# Filtered + Predictable: Combines Filter + Predictable, i.e. entities only, and categories that appear in the training hierarchy
+		filtered_predictable_tys = filtered_tys[:, overlapping_category_ids]
+		filtered_predictable_preds = filtered_preds[:, overlapping_category_ids]
+
+		filtered_predictable_acc = accuracy_score(filtered_predictable_tys, filtered_predictable_preds)
+		filtered_predictable_micro_f1 = f1_score(filtered_predictable_tys, filtered_predictable_preds, average="micro")
+		filtered_predictable_macro_f1 = f1_score(filtered_predictable_tys, filtered_predictable_preds, average="macro")
+		
+
+		logger.info("Classification report (all):")
+		logger.info("\n" + classification_report(all_tys, all_preds, target_names=self.hierarchy.categories))
+
+		logger.info("Classification report (filtered, test categories only):")
+		logger.info("\n" + classification_report(predictable_tys, predictable_preds, target_names=self.hierarchy.get_overlapping_categories()))
+
+		#logger.debug("Hierarchy matrix:")
+		#for row in self.model.hierarchy_matrix:
+		#	logger.debug(" ".join([((" " if col > 0 else "") + "%.2f" % col) for col in row.tolist()[:20]]) + " ...")
+
+		#logger.info("\n" + self.get_tagged_sent_example(batch_tx, token_preds, batch_ty)
+		
+		logger.info("                  Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (micro_f1, macro_f1, acc))
+		logger.info("(Filtered)        Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (filtered_micro_f1, filtered_macro_f1, filtered_acc))
+		logger.info("(Predictable)     Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (predictable_micro_f1, predictable_macro_f1, predictable_acc))
+		logger.info("(F + Predictable) Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (filtered_predictable_micro_f1, filtered_predictable_macro_f1, filtered_predictable_acc))
+
+		
+		def build_true_and_preds(tys, preds):
+			true_and_prediction = []
+			for i, row in enumerate(tys):		
+				true_cats = self.hierarchy.onehot2categories(tys[i])		
+				pred_cats = self.hierarchy.onehot2categories(preds[i])
+				true_and_prediction.append((true_cats, pred_cats))	
+			return true_and_prediction	
+
+
+		logger.info("\nUsing NFGEC:")
+		nfgec_default  			= build_true_and_preds(all_tys, all_preds)
+		nfgec_filtered 			= build_true_and_preds(filtered_tys, filtered_preds)	
+		nfgec_predictable 		= build_true_and_preds(predictable_tys, predictable_preds)
+		nfgec_filtered_predictable	 = build_true_and_preds(filtered_predictable_tys, filtered_predictable_preds)
+	
+		logger.info("                  Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (nfgec_evaluate.loose_micro(nfgec_default)[2], nfgec_evaluate.loose_macro(nfgec_default)[2], nfgec_evaluate.strict(nfgec_default)[2]))	
+		logger.info("(Filtered)        Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (nfgec_evaluate.loose_micro(nfgec_filtered)[2], nfgec_evaluate.loose_macro(nfgec_filtered)[2], nfgec_evaluate.strict(nfgec_filtered)[2]))		
+		logger.info("(Predictable)     Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (nfgec_evaluate.loose_micro(nfgec_predictable)[2], nfgec_evaluate.loose_macro(nfgec_predictable)[2], nfgec_evaluate.strict(nfgec_predictable)[2]))	
+		logger.info("(F + Predictable) Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (nfgec_evaluate.loose_micro(nfgec_filtered_predictable)[2], nfgec_evaluate.loose_macro(nfgec_filtered_predictable)[2], nfgec_evaluate.strict(nfgec_filtered_predictable)[2]))	
+
+
 
 		return (micro_f1 + macro_f1 + filtered_micro_f1 + filtered_macro_f1 + predictable_micro_f1 + predictable_macro_f1 + filtered_predictable_micro_f1 + filtered_predictable_macro_f1) / 8
 
@@ -149,15 +206,17 @@ class ModelEvaluator():
 		tagged_sents = []
 		n = random.randint(0, len(token_preds) - 1)	# Pick a random sentence from the batch
 
+		
+
 		tagged_sent = []			
-		for i, token_ix in enumerate(batch_tx[n]):
+		for i, token_ix in enumerate(batch_tx):
 			if token_ix == 0:
 				continue	# Ignore padding tokens
 
 			tagged_sent.append([									\
 				self.word_vocab.ix_to_token[token_ix],				\
-				self.hierarchy.onehot2categories(batch_ty[n][i]),	\
-				self.hierarchy.onehot2categories(token_preds[n][i])	\
+				self.hierarchy.onehot2categories(batch_ty[i]),	\
+				self.hierarchy.onehot2categories(token_preds[i])	\
 			])
 		tagged_sents.append(tagged_sent)
 
@@ -243,4 +302,46 @@ class ModelEvaluator():
 				logger.info("No improvement to F1 score in past %d epochs. Stopping early." % cf.STOP_CONDITION)
 				logger.info("Best F1 Score: %.4f" % self.best_f1_and_epoch[0])
 				sys.exit(0)
+
+
+def main():
+
+	from model import E2EETModel
+	from bert_serving.client import BertClient
+	import jsonlines
+	
+	bc = BertClient()
+
+	logger.info("Loading files...")
+
+	data_loaders = dutils.load_obj_from_pkl_file('data loaders', cf.ASSET_FOLDER + '/data_loaders.pkl')
+	word_vocab = dutils.load_obj_from_pkl_file('word vocab', cf.ASSET_FOLDER + '/word_vocab.pkl')
+	wordpiece_vocab = dutils.load_obj_from_pkl_file('wordpiece vocab', cf.ASSET_FOLDER + '/wordpiece_vocab.pkl')
+	hierarchy = dutils.load_obj_from_pkl_file('hierarchy', cf.ASSET_FOLDER + '/hierarchy.pkl')
+	total_wordpieces = dutils.load_obj_from_pkl_file('total wordpieces', cf.ASSET_FOLDER + '/total_wordpieces.pkl')
+	
+	logger.info("Building model.")
+	model = E2EETModel(	embedding_dim = cf.EMBEDDING_DIM,
+						hidden_dim = cf.HIDDEN_DIM,
+						vocab_size = len(wordpiece_vocab),
+						label_size = len(hierarchy),
+						model_options = cf.MODEL_OPTIONS,
+						total_wordpieces = total_wordpieces,
+						category_counts = hierarchy.get_train_category_counts(),
+						hierarchy_matrix = hierarchy.hierarchy_matrix)
+	model.cuda()
+
+	model.load_state_dict(torch.load(cf.BEST_MODEL_FILENAME))
+
+	modelEvaluator = ModelEvaluator(model, data_loaders['test'], word_vocab, wordpiece_vocab, hierarchy, bc)
+	
+	with jsonlines.open(cf.BEST_MODEL_JSON_FILENAME, "r") as reader:
+		for line in reader:
+			f1_score, epoch = line['f1_score'], line['epoch']
+
+	modelEvaluator.evaluate_model(epoch)
+	
+
+if __name__ == "__main__":
+	main()
 		

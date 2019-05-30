@@ -17,7 +17,7 @@ from load_config import load_config
 cf = load_config()
 
 MAX_SENT_LEN = cf.MAX_SENT_LEN
-from gensim.models import KeyedVectors
+#from gensim.models import KeyedVectors
 
 batch_size = 100
 

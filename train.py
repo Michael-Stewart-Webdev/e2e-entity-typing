@@ -27,8 +27,10 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 
 	modelEvaluator = ModelEvaluator(model, data_loaders['test'], word_vocab, wordpiece_vocab, hierarchy, bc)
 	
-	optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=cf.LEARNING_RATE, momentum=0.9)
+	#optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=cf.LEARNING_RATE, momentum=0.9)
+	optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=cf.LEARNING_RATE)#, momentum=0.9)
 	model.cuda()
+	print cf.LEARNING_RATE
 
 	num_batches = len(data_loaders["train"])
 	progress_bar = ProgressBar(num_batches = num_batches, max_epochs = cf.MAX_EPOCHS, logger = logger)
@@ -58,7 +60,7 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 			model.zero_grad()
 			model.train()
 
-			y_hat = model(bert_embs, hierarchy.hierarchy_matrix)
+			y_hat = model(bert_embs)
 
 			loss = model.calculate_loss(y_hat, batch_x, batch_y, batch_z)
 
@@ -78,19 +80,42 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 		modelEvaluator.evaluate_every_n_epochs(10, epoch)
 
 
+
+
+def train_without_loading(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wordpieces):
+	model = E2EETModel(	embedding_dim = cf.EMBEDDING_DIM,
+		hidden_dim = cf.HIDDEN_DIM,
+		vocab_size = len(wordpiece_vocab),
+		label_size = len(hierarchy),
+		model_options = cf.MODEL_OPTIONS,
+		total_wordpieces = total_wordpieces,
+		category_counts = hierarchy.get_train_category_counts(),
+		hierarchy_matrix = hierarchy.hierarchy_matrix)
+
+	model.cuda()
+
+	train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy)
+	
+
 def main():
+
+	logger.info("Loading files...")
 
 	data_loaders = dutils.load_obj_from_pkl_file('data loaders', cf.ASSET_FOLDER + '/data_loaders.pkl')
 	word_vocab = dutils.load_obj_from_pkl_file('word vocab', cf.ASSET_FOLDER + '/word_vocab.pkl')
 	wordpiece_vocab = dutils.load_obj_from_pkl_file('wordpiece vocab', cf.ASSET_FOLDER + '/wordpiece_vocab.pkl')
 	hierarchy = dutils.load_obj_from_pkl_file('hierarchy', cf.ASSET_FOLDER + '/hierarchy.pkl')
+	total_wordpieces = dutils.load_obj_from_pkl_file('total wordpieces', cf.ASSET_FOLDER + '/total_wordpieces.pkl')
 	
 	logger.info("Building model.")
 	model = E2EETModel(	embedding_dim = cf.EMBEDDING_DIM,
 						hidden_dim = cf.HIDDEN_DIM,
 						vocab_size = len(wordpiece_vocab),
 						label_size = len(hierarchy),
-						model_options = cf.MODEL_OPTIONS)
+						model_options = cf.MODEL_OPTIONS,
+						total_wordpieces = total_wordpieces,
+						category_counts = hierarchy.get_train_category_counts(),
+						hierarchy_matrix = hierarchy.hierarchy_matrix)
 	model.cuda()
 
 	train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy)

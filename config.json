@@ -1,17 +1,17 @@
 {
-	"dataset": "figer_filtered_(hierarchy)",
-	"model": "test_model",
+	"dataset": "ontonotes_modified",
+	"model": "test_model_ontonotes_adam_0001",
 	"embedding_dim": 768,
 	"hidden_dim": 768,
 	"max_epochs": 2000,
-	"learning_rate": 0.1,
-	"max_sent_len": 50,
+	"learning_rate": 0.001,
+	"max_sent_len": 100,
 	"stop_condition": 50,
-	"max_train_sents": 50000,
+	"max_train_sents": "all",
 	"max_test_sents": "all",
-	"batch_size": 40,
+	"batch_size": 10,
 	"model_options": {
 		"use_mention_layer": false,
-		"use_hierarchy": true
+		"use_hierarchy": false
 	}
 }

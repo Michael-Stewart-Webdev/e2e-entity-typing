@@ -17,6 +17,8 @@ from data_utils import Vocab, CategoryHierarchy, EntityTypingDataset, tokens_to_
 from load_config import load_config
 cf = load_config()
 
+from train import train_without_loading
+
 MAX_SENT_LEN = cf.MAX_SENT_LEN
 
 # A class for holding one sentence from the dataset.
@@ -157,16 +159,18 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 	sentences = []
 	invalid_sentences_count = 0
 	total_sents = 0
-	
+	total_wordpieces = 0
 	# Generate the Sentences
 	with jsonlines.open(filepath, "r") as reader:
 		for line in reader:
-			tokens = [w for w in line['tokens']]			
+			tokens = [w for w in line['tokens']]
+				
 			labels = [[0] * len(hierarchy) for x in range(len(tokens))]
 			for m in line['mentions']:
 				for i in range(m['start'], m['end']):					
 					labels[i] = hierarchy.categories2onehot(m['labels'])
 			sent = Sentence(tokens, labels, word_vocab, wordpiece_vocab)
+			total_wordpieces += len(sent.wordpieces)
 			if sent.is_valid():
 				sentences.append(sent)
 				#if ds_name == "test":
@@ -174,12 +178,15 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 			else:
 				invalid_sentences_count += 1
 			total_sents += 1
+			print "\r%s" % total_sents,
 			if type(cf.MAX_SENTS[ds_name]) == int and len(sentences) >= cf.MAX_SENTS[ds_name]:
 				break
 
 	# If any sentences are invalid, log a warning message.
 	if invalid_sentences_count > 0:
 		logger.warn("%d of %d sentences in the %s dataset were not included in the dataset due to exceeding the MAX_SENT_LEN of %s after wordpiece tokenization." % (invalid_sentences_count, total_sents, ds_name, MAX_SENT_LEN))
+
+	logger.info("Building data loader...")
 
 	# Construct an EntityTypingDataset object.
 	data_x, data_y, data_z, data_i, data_tx, data_ty, data_tm,  = [], [], [], [], [], [], []
@@ -191,9 +198,13 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 		data_tx.append(np.asarray(sent.token_indexes))
 		data_ty.append(np.asarray(sent.labels))
 		data_tm.append(np.asarray(sent.token_idxs_to_wp_idxs))
+		sys.stdout.write("\r%i / %i" % (i, len(sentences)))
+		sys.stdout.flush()
+	print ""
+	logger.info("Data loader complete.")
 
 	dataset = EntityTypingDataset(data_x, data_y, data_z, data_i, data_tx, data_ty, data_tm)
-	return dataset, sentences
+	return dataset, sentences, total_wordpieces
 
 
 
@@ -214,15 +225,20 @@ def main(asset_path):
 	word_vocab = Vocab()
 	wordpiece_vocab = Vocab()
 
+	logger.info("Hierarchy contains %d categories unique to the test set." % len(hierarchy.get_categories_unique_to_test_dataset()))
+
 	# 3. Build a data loader for each dataset (train, test).
 	data_loaders = {}
 	for ds_name, filepath in dataset_filenames.items():
 		logger.info("Loading %s dataset from %s." % (ds_name, filepath))
-		dataset, sentences = build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name)
+		dataset, sentences, total_wordpieces = build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name)
 		data_loader = DataLoader(dataset, batch_size=cf.BATCH_SIZE, pin_memory=True)
 		data_loaders[ds_name] = data_loader
 		logger.info("The %s dataset was built successfully." % ds_name)
 
+		logger.info("Dataset contains %i wordpieces (including overly long sentences)." % total_wordpieces)
+		if ds_name == "train":
+			total_wordpieces_train = total_wordpieces
 		# for batch_x, batch_y, batch_z, batch_i, batch_tx, batch_ty, batch_tm,  in data_loader:
 		#  	print "x:", batch_x 
 		#  	print "y:", batch_y
@@ -234,10 +250,26 @@ def main(asset_path):
 		#  	print "tm:", batch_tm 
 		#  	print "==="
 
+	print hierarchy.category_counts['train']
+
+
+	BYPASS_SAVING = False
+	if BYPASS_SAVING:
+		logger.info("Bypassing file saving - training model directly")
+		train_without_loading(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wordpieces_train)
+		return
+	
+
+	logger.info("Saving data loaders to file...")
+
 	dutils.save_obj_to_pkl_file(data_loaders, 'data loaders', cf.ASSET_FOLDER + '/data_loaders.pkl')
+
+	logger.info("Saving vocabs and hierarchy to file...")
 	dutils.save_obj_to_pkl_file(word_vocab, 'word vocab', cf.ASSET_FOLDER + '/word_vocab.pkl')
 	dutils.save_obj_to_pkl_file(wordpiece_vocab, 'wordpiece vocab', cf.ASSET_FOLDER + '/wordpiece_vocab.pkl')
 	dutils.save_obj_to_pkl_file(hierarchy, 'hierarchy', cf.ASSET_FOLDER + '/hierarchy.pkl')
+
+	dutils.save_obj_to_pkl_file(total_wordpieces_train, 'total_wordpieces', cf.ASSET_FOLDER + '/total_wordpieces.pkl')
 
 	dutils.save_list_to_file(word_vocab.ix_to_token, 'word vocab', cf.DEBUG_FOLDER + '/word_vocab.txt')
 	dutils.save_list_to_file(wordpiece_vocab.ix_to_token, 'wordpiece vocab', cf.DEBUG_FOLDER + '/wordpiece_vocab.txt')
