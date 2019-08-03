@@ -14,6 +14,9 @@ tokenizer = tokenization.FullTokenizer(
     vocab_file='./data/bert/vocab.txt', do_lower_case=False)
 
 
+torch.manual_seed(123)
+torch.backends.cudnn.deterministic=True
+
 # Save an object to a pickle file and provide a message when complete.
 def save_obj_to_pkl_file(obj, obj_name, fname):
 	with open(fname, 'w') as f:
@@ -70,6 +73,23 @@ class EntityTypingDataset(Dataset):
 
 	def __len__(self):
 		return len(self.x)
+
+# An MentionTypingDataset, comprised of multiple Mentions.
+class MentionTypingDataset(Dataset):
+	def __init__(self, xl, xr, xa, xm, y):
+		super(MentionTypingDataset, self).__init__()
+		self.xl = xl # context (left)
+		self.xr = xr # context (right)
+		self.xa = xa # context (all)
+		self.xm = xm # context (mention)
+		self.y = y
+
+	
+	def __getitem__(self, ids):
+		return self.xl[ids], self.xr[ids], self.xa[ids], self.xm[ids], self.y[ids]
+
+	def __len__(self):
+		return len(self.xl)
 
 # A Class to store the category hierarchy.
 class CategoryHierarchy():
@@ -207,7 +227,10 @@ def batch_to_wordpieces(batch_x, vocab):
 	wordpieces = []
 	padding_idx = vocab.token_to_ix["[PAD]"]
 	for sent in batch_x:
-		wordpieces.append([vocab.ix_to_token[x] for x in sent if x != padding_idx])
+		sent_wordpieces = [vocab.ix_to_token[x] for x in sent if x != padding_idx]
+		if sent_wordpieces == []:
+			sent_wordpieces = ['[PAD]'] # Allows BERT as a service to still embed it as zeros
+		wordpieces.append(sent_wordpieces)
 	return wordpieces
 
 def wordpieces_to_bert_embs(batch_x, bc):

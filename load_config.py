@@ -48,11 +48,17 @@ class Config():
 		self.BATCH_SIZE = cf['batch_size']
 		self.MAX_SENT_LEN = cf['max_sent_len']
 		self.STOP_CONDITION = cf['stop_condition'] # Stop after this many epochs with no f1 improvement
-		self.MAX_SENTS = {"train": cf['max_train_sents'], "test": cf['max_test_sents']}
+		self.MAX_SENTS = {"train": cf['max_train_sents'], "test": cf['max_test_sents'], "dev": cf['max_dev_sents']}
+
+		self.TASK = cf['task'] # mention_level or end_to_end
+		if self.TASK not in ['end_to_end', 'mention_level']:
+			logger.error("Task must be either end_to_end or mention_level in config.json.")
+			sys.exit(0)
 
 		self.MODEL_OPTIONS = cf['model_options']
 
 		self.TRAIN_FILENAME = check_filename_exists("data/datasets/%s/train.json" % cf['dataset'])
+		self.DEV_FILENAME  = check_filename_exists("data/datasets/%s/dev.json" % cf['dataset'])
 		self.TEST_FILENAME  = check_filename_exists("data/datasets/%s/test.json" % cf['dataset'])
 
 		self.FILTERED_TRAIN_FOLDER = initialise_folder("data/datasets/%s_filtered" % cf['dataset'], "filtered dataset")

@@ -5,13 +5,13 @@ from load_config import device
 
 from sklearn.cluster import KMeans
 
-torch.manual_seed(123)
+torch.manual_seed(256)
 torch.backends.cudnn.deterministic=True
 
 
 
 class MentionLevelModel(nn.Module):
-	def __init__(self, embedding_dim, hidden_dim, vocab_size, label_size, model_options, total_wordpieces, category_counts, hierarchy_matrix, context_window, mention_window, attention_type, use_context_encoders):
+	def __init__(self, embedding_dim, hidden_dim, vocab_size, label_size, model_options, total_wordpieces, category_counts, hierarchy_matrix, context_window, mention_window, attention_type):
 		super(MentionLevelModel, self).__init__()
 
 		self.embedding_dim = embedding_dim
@@ -21,7 +21,7 @@ class MentionLevelModel(nn.Module):
 
 		self.layer_1 = nn.Linear(hidden_dim + hidden_dim + hidden_dim, hidden_dim)
 
-		#self.dropout = nn.Dropout()
+		self.dropout = nn.Dropout()
 
 		self.hidden2tag = nn.Linear(hidden_dim, label_size)
 
@@ -31,10 +31,6 @@ class MentionLevelModel(nn.Module):
 	
 
 		self.dropout = nn.Dropout(p=0.5)
-
-		self.dropout_l = nn.Dropout(p=0.5)
-		self.dropout_r = nn.Dropout(p=0.5)
-		self.dropout_m = nn.Dropout(p=0.5)
 
 		self.hierarchy_matrix = hierarchy_matrix
 		self.context_window = context_window
@@ -46,7 +42,6 @@ class MentionLevelModel(nn.Module):
 				
 
 		self.attention_type = attention_type
-		self.use_context_encoders = use_context_encoders
 		
 		if self.attention_type == "dynamic":
 			print "Using dynamic attention"
@@ -61,24 +56,10 @@ class MentionLevelModel(nn.Module):
 		batch_xr = batch_xr[:, 0:self.context_window, :].mean(1)
 		batch_xm = batch_xm[:, 0:self.mention_window, :].mean(1)
 
-
-		if self.use_context_encoders:
-		
-			#batch_xl = self.left_enc(batch_xl)
-			#batch_xr = self.right_enc(batch_xr)
-			#batch_xm = self.mention_enc(batch_xm)
-
-			# batch_xl = torch.relu(self.left_enc(batch_xl))
-			# batch_xr = torch.relu(self.right_enc(batch_xr))
-			# batch_xm = torch.relu(self.mention_enc(batch_xm))
-		
-			#batch_xl = self.left_enc(batch_xl)
-			#batch_xr = self.right_enc(batch_xr)
-			#batch_xm = self.mention_enc(batch_xm)
-
-			batch_xl = self.dropout_l(torch.relu(self.left_enc(batch_xl)))
-			batch_xr = self.dropout_l(torch.relu(self.right_enc(batch_xr)))
-			batch_xm = self.dropout_l(torch.relu(self.mention_enc(batch_xm)))
+		batch_xl = torch.relu(self.left_enc(batch_xl))
+		batch_xr = torch.relu(self.right_enc(batch_xr))
+		batch_xm = torch.relu(self.mention_enc(batch_xm))
+	
 
 
 		if self.attention_type == "dynamic":		
@@ -87,9 +68,6 @@ class MentionLevelModel(nn.Module):
 			# The idea is that the network will learn to determine the effectiveness of the left, right, or mention context depending
 			# on the mention context (i.e. "Apple" requires the left and right context to predict accurately, whereas "Obama" only requires
 			# the mention context.
-
-			
-
 			attn_weights = torch.softmax(self.attention_layer(batch_xm), dim=1)
 			#print attn_weights[0]
 			joined = torch.cat((batch_xl, batch_xr, batch_xm), dim=1).view(batch_xm.size()[0], 3, batch_xm.size()[1])
