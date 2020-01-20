@@ -36,30 +36,38 @@ class Sentence(object):
 		self.labels = labels[:]
 
 		
+		if build_labels:
+			self.mentions = self.get_mentions_vector(self.labels)
 		self.wordpieces, self.token_idxs_to_wp_idxs = self.get_wordpieces(tokens)
 
 		#if len(self.wordpieces) > MAX_SENT_LEN:
 		#	logger.debug("A sentence in the dataset exceeds MAX_SENT_LEN (%d): %s" % (MAX_SENT_LEN, " ".join(self.wordpieces)))
 
-		
+		if build_labels:
+			self.wordpiece_labels = self.get_wordpiece_labels(self.wordpieces, self.labels, self.token_idxs_to_wp_idxs)	
 
 		# Pad the wordpieces and wordpiece labels so that the DataLoader interprets them correctly.
 		self.pad_wordpieces()
+		if build_labels:
+			self.pad_wordpiece_labels()
 
 		#print self.wordpieces, "<<"
 		
 		self.pad_tokens()
+		if build_labels:
+			self.pad_labels()
 		
 		self.pad_token_map()
 
 
-		if build_labels:
-			self.mentions = self.get_mentions_vector(self.labels)
+		#if build_labels:
 			
+
+		if build_labels:					
 			self.wordpiece_mentions = self.get_mentions_vector(self.wordpiece_labels)
-			self.wordpiece_labels = self.get_wordpiece_labels(self.wordpieces, self.labels, self.token_idxs_to_wp_idxs)
-			self.pad_wordpiece_labels()
-			self.pad_labels()
+			
+			#self.pad_wordpiece_labels()
+			
 
 
 		# Add every word and wordpiece in this sentence to the Vocab object.
@@ -279,7 +287,9 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 	# Generate the Sentences
 	with jsonlines.open(filepath, "r") as reader:
 		for line in reader:
-			tokens = [w for w in line['tokens']]	
+			tokens = [w for w in line['tokens']]
+			if cf.EMBEDDING_MODEL != "bert":
+				tokens = [t.lower() for t in tokens]
 			total_sents += 1
 			if cf.TASK == "end_to_end":
 							
@@ -311,7 +321,7 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 					total_mentions += 1
 					total_wordpieces += len(mention.wordpieces)
 
-			print "\r%s" % total_sents,
+			print("\r%s" % total_sents, end="")
 			if type(cf.MAX_SENTS[ds_name]) == int and len(mentions) >= cf.MAX_SENTS[ds_name]:
 				break
 				
@@ -339,7 +349,7 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 			data_tm.append(np.asarray(sent.token_idxs_to_wp_idxs))
 			sys.stdout.write("\r%i / %i" % (i, len(sentences)))
 			sys.stdout.flush()
-		print ""
+		print("")
 		logger.info("Data loader complete.")	
 
 		dataset = EntityTypingDataset(data_x, data_y, data_z, data_i, data_tx, data_ty, data_tm)
@@ -411,10 +421,10 @@ def main(asset_path):
 		#  	print "tm:", batch_tm 
 		#  	print "==="
 
-	print hierarchy.category_counts['train']
+	print(hierarchy.category_counts['train'])
 
 
-	BYPASS_SAVING = True
+	BYPASS_SAVING = False
 	if BYPASS_SAVING:
 		#logger.info("Bypassing file saving - training model directly")
 		#train_without_loading(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wordpieces_train)

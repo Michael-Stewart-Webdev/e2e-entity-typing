@@ -1,4 +1,10 @@
-data/*
+data/old/*
+data/old_2/*
 env/*
 *.pyc
 !.gitignore
+old/*
+glove/*
+word2vec/*
+!.keep
+models/*

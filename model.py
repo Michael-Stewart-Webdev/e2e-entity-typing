@@ -7,6 +7,7 @@ from sklearn.cluster import KMeans
 
 torch.manual_seed(123)
 torch.backends.cudnn.deterministic=True
+from torch.distributions import Uniform
 
 
 
@@ -49,17 +50,39 @@ class MentionLevelModel(nn.Module):
 		self.use_context_encoders = use_context_encoders
 		
 		if self.attention_type == "dynamic":
-			print "Using dynamic attention"
+			print("Using dynamic attention")
 			self.attention_layer = nn.Linear(embedding_dim, 3)
 		elif self.attention_type == "scalar":
 			self.component_weights = nn.Parameter(torch.ones(3).float())
 
+
+
+		self.USE_RECURRENT_LAYER = True
+		self.recurrent_layer = nn.GRU(self.embedding_dim, self.hidden_dim, bidirectional = True, num_layers = 2, dropout = 0.5)
+		self.batch_size = 100
+		self.max_seq_len = 10
+		if(self.USE_RECURRENT_LAYER):
+			self.hidden2tag = nn.Linear(hidden_dim * 2, label_size)
+		else:
+			self.hidden2tag = nn.Linear(hidden_dim, label_size)
+
+
+
+	def init_hidden(self):
+		# Before we've done anything, we dont have any hidden state.
+		# Refer to the Pytorch documentation to see exactly
+		# why they have this dimensionality.
+		# The axes semantics are (num_layers, minibatch_size, hidden_dim)
+		#return (torch.zeros(4, self.batch_size, self.hidden_dim, device=device),
+		#		torch.zeros(4, self.batch_size, self.hidden_dim, device=device))
+
+		return (torch.zeros(4, self.batch_size, self.hidden_dim, device=device)) #GRU version
 	
 	def forward(self, batch_xl, batch_xr, batch_xa, batch_xm):		
 
-		batch_xl = batch_xl[:, 0:self.context_window, :].mean(1)	# Truncate the weights to the appropriate window length, just in case BERT's max_seq_len exceeds it	
-		batch_xr = batch_xr[:, 0:self.context_window, :].mean(1)
-		batch_xm = batch_xm[:, 0:self.mention_window, :].mean(1)
+		#batch_xl = batch_xl[:, 0:self.context_window, :].mean(1)	# Truncate the weights to the appropriate window length, just in case BERT's max_seq_len exceeds it	
+		#batch_xr = batch_xr[:, 0:self.context_window, :].mean(1)
+		#batch_xm = batch_xm[:, 0:self.mention_window, :].mean(1)
 
 
 		if self.use_context_encoders:
@@ -101,8 +124,25 @@ class MentionLevelModel(nn.Module):
 		elif self.attention_type == "none":
 			joined = torch.cat((batch_xl, batch_xr,  batch_xm), 1)
 		
-		batch_x_out = self.dropout(torch.relu(self.layer_1(joined)))
-		y_hat = self.hidden2tag(batch_x_out)	
+
+		if self.USE_RECURRENT_LAYER:
+			self.hidden = self.init_hidden()
+
+			batch = torch.nn.utils.rnn.pack_padded_sequence(joined, [3 * self.max_seq_len] * self.batch_size, batch_first=True, enforce_sorted=False)
+
+			batch, self.hidden = self.recurrent_layer(batch, self.hidden)
+			batch, _ = torch.nn.utils.rnn.pad_packed_sequence(batch, batch_first = True)
+			batch = batch.contiguous()
+			batch = batch.view(-1, batch.shape[2])
+
+			y_hat = self.hidden2tag(batch)
+		
+			#y_hat = y_hat.view(self.batch_size, self.max_seq_len, self.label_size)
+			return y_hat 
+
+		else:
+			batch_x_out = self.dropout(torch.relu(self.layer_1(joined)))
+			y_hat = self.hidden2tag(batch_x_out)	
 
 
 		if self.use_hierarchy:
@@ -151,7 +191,8 @@ class MentionLevelModel(nn.Module):
 	
 
 class E2EETModel(nn.Module):
-	def __init__(self, embedding_dim, hidden_dim, vocab_size, label_size, model_options, total_wordpieces, category_counts, hierarchy_matrix):
+
+	def __init__(self, embedding_dim, hidden_dim, vocab_size, label_size, model_options, total_wordpieces, category_counts, hierarchy_matrix, embedding_model, vocab_size_word, pretrained_embeddings):
 		super(E2EETModel, self).__init__()
 
 		self.embedding_dim = embedding_dim
@@ -163,14 +204,14 @@ class E2EETModel(nn.Module):
 
 		self.dropout = nn.Dropout()
 
-		self.hidden2tag = nn.Linear(hidden_dim, label_size)
+		
 
 
 
 		self.use_mention_layer = model_options['use_mention_layer']
 		self.use_hierarchy 	 = model_options['use_hierarchy']
 
-		print "Use hierarchy:", self.use_hierarchy
+		print("Use hierarchy:", self.use_hierarchy)
 
 		self.dropout = nn.Dropout(p=0.5)
 
@@ -179,8 +220,8 @@ class E2EETModel(nn.Module):
 			self.hidden2tag_m = nn.Linear(hidden_dim, 1)
 
 		category_weights = [((total_wordpieces - c * 1.0) / (c)) if c > 0 else 0  for c in category_counts]
-		print category_counts
-		print category_weights
+		print (category_counts)
+		print (category_weights)
 
 		self.pos_weights = torch.tensor(category_weights).to(device)
 		self.pos_weights.requires_grad = False
@@ -188,14 +229,73 @@ class E2EETModel(nn.Module):
 		#self.hierarchy_matrix = torch.nn.Parameter(hierarchy_matrix)
 		self.hierarchy_matrix = hierarchy_matrix
 
+		self.recurrent_layer = nn.GRU(self.embedding_dim, self.hidden_dim, bidirectional = True, num_layers = 2, dropout = 0.5)
+
+		self.USE_RECURRENT_LAYER = True
+
+		self.batch_size = 10
+		self.max_seq_len = 100
+		if(self.USE_RECURRENT_LAYER):
+			self.hidden2tag = nn.Linear(hidden_dim * 2, label_size)
+		else:
+			self.hidden2tag = nn.Linear(hidden_dim, label_size)
+
+		self.embedding_model = embedding_model
+
+		if embedding_model in ['random', 'glove', 'word2vec']:
+
+			self.embedding_layer = nn.Embedding(vocab_size_word, embedding_dim)
+
+			if embedding_model == "random":
+				dist = Uniform(0.0, 1.0)
+				randomised_embs = dist.sample(torch.Size([vocab_size_word, embedding_dim]))
+				randomised_embs[0] = torch.zeros([embedding_dim]) # Set padding token to zeros like glove, etc
+				self.embedding_layer.weight.data.copy_(randomised_embs)
+				print(randomised_embs[0])
+				print(randomised_embs[1])
+			else:
+				self.embedding_layer.weight.data.copy_(torch.from_numpy(pretrained_embeddings))
+
+			self.embedding_layer.weight.requires_grad = False
+
+
+	def init_hidden(self):
+		# Before we've done anything, we dont have any hidden state.
+		# Refer to the Pytorch documentation to see exactly
+		# why they have this dimensionality.
+		# The axes semantics are (num_layers, minibatch_size, hidden_dim)
+		#return (torch.zeros(4, self.batch_size, self.hidden_dim, device=device),
+		#		torch.zeros(4, self.batch_size, self.hidden_dim, device=device))
+
+		return (torch.zeros(4, self.batch_size, self.hidden_dim, device=device)) #GRU version
+
 	def forward(self, batch_x):
+		if self.embedding_model in ['random', 'glove', 'word2vec']:
+			batch_x = self.embedding_layer(batch_x)
+
+
+		if self.USE_RECURRENT_LAYER:
+			self.hidden = self.init_hidden()
+
+			batch = torch.nn.utils.rnn.pack_padded_sequence(batch_x, [self.max_seq_len] * self.batch_size, batch_first=True, enforce_sorted=False)
+			batch, self.hidden = self.recurrent_layer(batch, self.hidden)
+			batch, _ = torch.nn.utils.rnn.pad_packed_sequence(batch, batch_first = True)
+			batch = batch.contiguous()
+			batch = batch.view(-1, batch.shape[2])
+
+			y_hat = self.hidden2tag(batch)
+		
+			y_hat = y_hat.view(self.batch_size, self.max_seq_len, self.label_size)
+			return y_hat 
 
 
 
 
 		batch_x_out = self.dropout(torch.relu(self.layer_1(batch_x)))
+
 		#batch_x_out = self.layer_1(batch_x)
 		y_hat = self.hidden2tag(batch_x_out)
+
 
 
 		if self.use_mention_layer:
@@ -231,6 +331,8 @@ class E2EETModel(nn.Module):
 		loss_fn = nn.BCEWithLogitsLoss()#pos_weight=self.pos_weights)
 
 		loss = loss_fn(y_hat[non_padding_indexes], batch_y[non_padding_indexes])
+
+		#print("Loss: %.4f" % loss)
 
 		#if self.use_mention_layer:
 		#	loss_fn = nn.BCELoss()

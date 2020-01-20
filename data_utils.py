@@ -11,7 +11,7 @@ sys.path.append('bert')
 import tokenization
 
 tokenizer = tokenization.FullTokenizer(
-    vocab_file='./data/bert/vocab.txt', do_lower_case=False)
+	vocab_file='./data/bert/vocab.txt', do_lower_case=False)
 
 
 torch.manual_seed(123)
@@ -19,7 +19,7 @@ torch.backends.cudnn.deterministic=True
 
 # Save an object to a pickle file and provide a message when complete.
 def save_obj_to_pkl_file(obj, obj_name, fname):
-	with open(fname, 'w') as f:
+	with open(fname, 'wb') as f:
 		pkl.dump(obj, f, protocol=2)
 		logger.info("Saved %s to %s." % (obj_name, fname))
 
@@ -134,9 +134,9 @@ class CategoryHierarchy():
 			hierarchy_matrix.append(subcat_idxs_onehot)
 
 		for i, row in enumerate(hierarchy_matrix):
-			print self.categories[i].ljust(40), row[:30]
+			print(self.categories[i].ljust(40), row[:30])
 
-		print self.categories
+		print(self.categories)
 		return torch.from_numpy(np.asarray(hierarchy_matrix)).float().to(device)
 
 	def get_categories_unique_to_test_dataset(self):
@@ -257,3 +257,36 @@ def build_token_to_wp_mapping(batch_tm):
 			token_idxs_to_wp_idxs[-1][i] = range(ls[i], m)
 
 	return token_idxs_to_wp_idxs
+
+# Load embeddings from file for Glove.
+# Some code in this function was found at https://github.com/guillaumegenthial/sequence_wtagging
+def load_embeddings(emb_model, word_vocab, embedding_dim):
+	if emb_model == "glove":
+		emb_file = 'glove/glove.6B.300d.txt'
+	elif emb_model == "word2vec":
+		#emb_file = 'word2vec/GoogleNews-vectors-negative300.txt'
+		emb_file = 'word2vec/enwiki_20180420_300d.txt'
+	else:
+		raise Exception("Embedding model not supported")
+		#with np.load(emb_file) as data:
+		#	embs = data["embeddings"]
+
+	print("Loading embeddings")
+	print(word_vocab.ix_to_token[0])
+	embeddings = np.zeros([len(word_vocab), embedding_dim])
+	with open(emb_file) as f:
+		for line in f:
+			line = line.strip().split(' ')
+			word = line[0]
+			embedding = [float(x) for x in line[1:]]
+			if word in word_vocab.token_to_ix:
+				word_idx = word_vocab.token_to_ix[word.lower()]
+				embeddings[word_idx] = np.asarray(embedding)
+
+	print("Found %d embeddings" % len(embeddings))
+
+	#for i, embedding in enumerate(embeddings):
+	#	print(word_vocab.ix_to_token[i], embedding[:5])
+	return embeddings
+	
+

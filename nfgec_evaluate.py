@@ -14,7 +14,10 @@ def strict(true_and_prediction):
     correct_num = 0.
     for true_labels, predicted_labels in true_and_prediction:
         correct_num += set(true_labels) == set(predicted_labels)
-    precision = recall = correct_num / num_entities 
+    try:
+        precision = recall = correct_num / num_entities 
+    except ZeroDivisionError:
+        return 0, 0, 0
     return precision, recall, f1( precision, recall)
 
 def loose_macro(true_and_prediction):
@@ -26,8 +29,11 @@ def loose_macro(true_and_prediction):
             p += len(set(predicted_labels).intersection(set(true_labels))) / float(len(predicted_labels))
         if len(true_labels):
             r += len(set(predicted_labels).intersection(set(true_labels))) / float(len(true_labels))
-    precision = p / num_entities
-    recall = r / num_entities
+    try:
+        precision = p / num_entities
+        recall = r / num_entities
+    except ZeroDivisionError:
+        return 0, 0, 0
     return precision, recall, f1( precision, recall)
 
 def loose_micro(true_and_prediction):
@@ -38,8 +44,11 @@ def loose_micro(true_and_prediction):
         num_predicted_labels += len(predicted_labels)
         num_true_labels += len(true_labels)
         num_correct_labels += len(set(predicted_labels).intersection(set(true_labels))) 
-    precision = num_correct_labels / num_predicted_labels
-    recall = num_correct_labels / num_true_labels
+    try:
+        precision = num_correct_labels / num_predicted_labels
+        recall = num_correct_labels / num_true_labels
+    except ZeroDivisionError:
+        return 0, 0, 0
     return precision, recall, f1( precision, recall)
 
 

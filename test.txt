@@ -1,6 +1,0 @@
-Äcgensim.models.keyedvectors
-Word2VecKeyedVectors
-q)Åq}q(Uvocabq}U
-index2wordq]U__numpysq]Uvectorsq]U__recursive_saveloadsq]U
-__ignoredsq	]q
-Uvectors_normqaUvector_sizeq}q(Ua]q(KKKeUb]q(KKKeuU__scipysq]ub.

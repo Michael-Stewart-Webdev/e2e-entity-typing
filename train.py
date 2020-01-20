@@ -1,5 +1,5 @@
 import data_utils as dutils
-from data_utils import Vocab, CategoryHierarchy, EntityTypingDataset, batch_to_wordpieces, wordpieces_to_bert_embs
+from data_utils import Vocab, CategoryHierarchy, EntityTypingDataset, batch_to_wordpieces, wordpieces_to_bert_embs, load_embeddings
 from bert_serving.client import BertClient
 from logger import logger
 from model import E2EETModel, MentionLevelModel
@@ -21,7 +21,10 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 	logger.info("Training model.")
 	
 	# Set up a new Bert Client, for encoding the wordpieces
-	bc = BertClient()
+	if cf.EMBEDDING_MODEL == "bert":
+		bc = BertClient()
+	else:
+		bc = None
 
 	modelEvaluator = ModelEvaluator(model, data_loaders['dev'], word_vocab, wordpiece_vocab, hierarchy, bc)
 	
@@ -31,7 +34,7 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 
 
 	num_batches = len(data_loaders["train"])
-	print num_batches
+	print(num_batches)
 	progress_bar = ProgressBar(num_batches = num_batches, max_epochs = cf.MAX_EPOCHS, logger = logger)
 	avg_loss_list = []
 
@@ -42,27 +45,51 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 		epoch_losses = []
 
 		if cf.TASK == "end_to_end":
-			for (i, (batch_x, batch_y, batch_z, _, _, _, _)) in enumerate(data_loaders["train"]):
-				#if i > 1:
-				#	continue
-				# 1. Convert the batch_x from wordpiece ids into wordpieces
-				wordpieces = batch_to_wordpieces(batch_x, wordpiece_vocab)
-			
-				# 2. Encode the wordpieces into Bert vectors
-				bert_embs  = wordpieces_to_bert_embs(wordpieces, bc)
+			for (i, (batch_x, batch_y, batch_z, _, batch_tx, batch_ty, _)) in enumerate(data_loaders["train"]):
 
 
-				bert_embs = bert_embs.to(device)
+				if len(batch_x) < cf.BATCH_SIZE:
+					continue
+
 				batch_y = batch_y.float().to(device)
 				batch_z = batch_z.float().to(device)
 
-				# 3. Feed these Bert vectors to our model
 				model.zero_grad()
 				model.train()
 
-				y_hat = model(bert_embs)
+				#if i > 1:
+				#	continue
+				# 1. Convert the batch_x from wordpiece ids into wordpieces
+				if cf.EMBEDDING_MODEL == "bert":
+					wordpieces = batch_to_wordpieces(batch_x, wordpiece_vocab)
 
-				loss = model.calculate_loss(y_hat, batch_x, batch_y, batch_z)
+
+			
+					# 2. Encode the wordpieces into Bert vectors
+					bert_embs  = wordpieces_to_bert_embs(wordpieces, bc)
+
+					bert_embs = bert_embs.to(device)
+
+					y_hat = model(bert_embs)
+
+					loss = model.calculate_loss(y_hat, batch_x, batch_y, batch_z)
+					
+				elif cf.EMBEDDING_MODEL in ['random', 'glove', 'word2vec']:
+					batch_tx_cuda = batch_tx.long().to(device)
+					batch_ty = batch_ty.float().to(device)
+
+					#print(batch_tx.size())
+
+					y_hat = model(batch_tx_cuda)
+
+					loss = model.calculate_loss(y_hat, batch_tx, batch_ty, batch_z)
+
+				
+
+				# 3. Feed these Bert vectors to our model
+				
+
+				
 
 				# 4. Backpropagate
 				loss.backward()
@@ -97,7 +124,7 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 				#bert_embs_a  = wordpieces_to_bert_embs(wordpieces_a, bc).to(device)
 				bert_embs_m  = wordpieces_to_bert_embs(wordpieces_m, bc).to(device)
 				
-				batch_y = batch_y.float().to(device)				
+				batch_y = batch_y.float().to(device)	
 
 				# 3. Feed these Bert vectors to our model
 				model.zero_grad()
@@ -142,7 +169,10 @@ def create_model(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wor
 							model_options = cf.MODEL_OPTIONS,
 							total_wordpieces = total_wordpieces,
 							category_counts = hierarchy.get_train_category_counts(),
-							hierarchy_matrix = hierarchy.hierarchy_matrix)
+							hierarchy_matrix = hierarchy.hierarchy_matrix,
+							embedding_model = cf.EMBEDDING_MODEL,
+							vocab_size_word = len(word_vocab),
+							pretrained_embeddings = None if cf.EMBEDDING_MODEL in ["random", "bert"] else load_embeddings(cf.EMBEDDING_MODEL, word_vocab, cf.EMBEDDING_DIM))
 
 	elif cf.TASK == "mention_level":
 		model = MentionLevelModel(	embedding_dim = cf.EMBEDDING_DIM,
@@ -164,8 +194,8 @@ def train_without_loading(data_loaders, word_vocab, wordpiece_vocab, hierarchy, 
 	model = create_model(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wordpieces)
 	model.cuda()
 
-	logger.info("Loading model weights...")
-	model.load_state_dict(torch.load(cf.BEST_MODEL_FILENAME))
+	#logger.info("Loading model weights...")
+	#model.load_state_dict(torch.load(cf.BEST_MODEL_FILENAME))
 	
 	train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy)
 
@@ -178,6 +208,8 @@ def main():
 	wordpiece_vocab = dutils.load_obj_from_pkl_file('wordpiece vocab', cf.ASSET_FOLDER + '/wordpiece_vocab.pkl')
 	hierarchy = dutils.load_obj_from_pkl_file('hierarchy', cf.ASSET_FOLDER + '/hierarchy.pkl')
 	total_wordpieces = dutils.load_obj_from_pkl_file('total wordpieces', cf.ASSET_FOLDER + '/total_wordpieces.pkl')
+
+	print(len(data_loaders['train']))
 	
 	logger.info("Building model.")
 

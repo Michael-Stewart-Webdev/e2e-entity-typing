@@ -50,6 +50,8 @@ class Config():
 		self.STOP_CONDITION = cf['stop_condition'] # Stop after this many epochs with no f1 improvement
 		self.MAX_SENTS = {"train": cf['max_train_sents'], "test": cf['max_test_sents'], "dev": cf['max_dev_sents']}
 
+		self.EMBEDDING_MODEL = cf['embedding_model']
+
 		self.TASK = cf['task'] # mention_level or end_to_end
 		if self.TASK not in ['end_to_end', 'mention_level']:
 			logger.error("Task must be either end_to_end or mention_level in config.json.")

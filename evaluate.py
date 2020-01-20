@@ -3,7 +3,7 @@ from load_config import load_config, device
 cf = load_config()
 from logger import logger
 import torch, json, sys
-from data_utils import batch_to_wordpieces, wordpieces_to_bert_embs, build_token_to_wp_mapping
+from data_utils import batch_to_wordpieces, wordpieces_to_bert_embs, build_token_to_wp_mapping, load_embeddings
 
 from sklearn.metrics import f1_score, classification_report, accuracy_score
 
@@ -45,28 +45,58 @@ class ModelEvaluator():
 		if cf.TASK == "end_to_end":
 			for (i, (batch_x, batch_y, batch_z, _, batch_tx, batch_ty, batch_tm)) in enumerate(self.data_loader):
 
-				# 1. Convert the batch_x from wordpiece ids into wordpieces
-				wordpieces = batch_to_wordpieces(batch_x, self.wordpiece_vocab)
-			
-				# 2. Encode the wordpieces into Bert vectors
-				bert_embs  = wordpieces_to_bert_embs(wordpieces, self.bc)
+				if len(batch_x) < cf.BATCH_SIZE:
+					continue
 
-				bert_embs = bert_embs.to(device)
+
 				batch_y = batch_y.float().to(device)
+
+				
 
 				# 3. Build the token to wordpiece mapping using batch_tm, built during the build_data stage.
 				token_idxs_to_wp_idxs = build_token_to_wp_mapping(batch_tm)
 
 
+
 				non_padding_indexes = torch.ByteTensor((batch_tx > 0))
 
+				if cf.EMBEDDING_MODEL == "bert":
+					wordpieces = batch_to_wordpieces(batch_x, self.wordpiece_vocab)
 
-				# 4. Retrieve the token predictions for this batch, from the model.
-				token_preds = self.model.predict_token_labels(bert_embs, token_idxs_to_wp_idxs)
+					# 2. Encode the wordpieces into Bert vectors
+					bert_embs  = wordpieces_to_bert_embs(wordpieces, self.bc)
+					bert_embs = bert_embs.to(device)
 
+					y_hat = self.model(bert_embs)
+
+					#loss = model.calculate_loss(y_hat, batch_x, batch_y, batch_z)
+
+					
+
+					# 4. Retrieve the token predictions for this batch, from the model.
+					token_preds = self.model.predict_token_labels(bert_embs, token_idxs_to_wp_idxs)
+
+					
+					
+				elif cf.EMBEDDING_MODEL in ['random', 'glove', 'word2vec']:
+					batch_tx_cuda = batch_tx.long().to(device)
+					#print(batch_tx.size())
+
+					y_hat = self.model(batch_tx_cuda)
+
+					#print(y_hat[0])
+
+					# 4. Retrieve the token predictions for this batch, from the model.
+					token_preds = self.model.predict_labels(y_hat).cpu()
+
+					#print(token_preds[0])
+
+
+				
 				#print token_preds, "<TP", len(token_preds)
 				token_preds = token_preds[non_padding_indexes]
-			
+
+
 				batch_tx = batch_tx[non_padding_indexes]
 				batch_ty = batch_ty[non_padding_indexes]
 			
@@ -83,6 +113,13 @@ class ModelEvaluator():
 
 				if i == 0:
 					logger.info("\n" + self.get_tagged_sent_example(batch_tx, token_preds, batch_ty))
+
+
+
+				
+
+
+				
 
 		elif cf.TASK == "mention_level":
 			if self.model.attention_type == "scalar":
@@ -161,7 +198,7 @@ class ModelEvaluator():
 
 		if cf.TASK == "end_to_end":
 
-			print all_tys.size()
+			print(all_tys)
 			# Filter out any completely-zero rows in batch_ty, i.e. the words that are not entities
 			nonzeros = torch.nonzero(all_tys)
 			indexes = torch.index_select(nonzeros, dim=1, index=torch.tensor([0])).view(-1)
@@ -220,11 +257,11 @@ class ModelEvaluator():
 
 
 
-			return (micro_f1 + macro_f1 + filtered_micro_f1 + filtered_macro_f1 + predictable_micro_f1 + predictable_macro_f1 + filtered_predictable_micro_f1 + filtered_predictable_macro_f1) / 8
+			return (filtered_micro_f1 + filtered_macro_f1 + predictable_micro_f1 + predictable_macro_f1 + filtered_predictable_micro_f1 + filtered_predictable_macro_f1) / 6
 
 		elif cf.TASK == "mention_level":
-			print ""
-			print len(true_and_prediction)
+			print("")
+			print(len(true_and_prediction))
 			#nfgec_default  			= build_true_and_preds(all_tys, all_preds)
 			micro, macro, acc = nfgec_evaluate.loose_micro(true_and_prediction)[2], nfgec_evaluate.loose_macro(true_and_prediction)[2], nfgec_evaluate.strict(true_and_prediction)[2]
 			logger.info("                  Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (micro, macro, acc))
@@ -336,7 +373,7 @@ class ModelEvaluator():
 				self.best_f1_and_epoch = [f1, epoch]
 				logger.info("New best average F1 score achieved!        (%s%.4f%s)" % (Fore.YELLOW, f1, Style.RESET_ALL))
 				self.save_best_model(f1, epoch)
-			elif epoch > 5 and self.no_improvement_in_n_epochs(cf.STOP_CONDITION, epoch):#:cf.STOP_CONDITION):
+			elif epoch > 15 and self.no_improvement_in_n_epochs(cf.STOP_CONDITION, epoch):#:cf.STOP_CONDITION):
 				logger.info("No improvement to F1 score in past %d epochs. Stopping early." % cf.STOP_CONDITION)
 				logger.info("Best F1 Score: %.4f" % self.best_f1_and_epoch[0])
 
@@ -357,7 +394,10 @@ def create_model(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wor
 							model_options = cf.MODEL_OPTIONS,
 							total_wordpieces = total_wordpieces,
 							category_counts = hierarchy.get_train_category_counts(),
-							hierarchy_matrix = hierarchy.hierarchy_matrix)
+							hierarchy_matrix = hierarchy.hierarchy_matrix,
+							embedding_model = cf.EMBEDDING_MODEL,
+							vocab_size_word = len(word_vocab),
+							pretrained_embeddings = None if cf.EMBEDDING_MODEL in ["random", "bert"] else load_embeddings(cf.EMBEDDING_MODEL, word_vocab, cf.EMBEDDING_DIM))
 
 	elif cf.TASK == "mention_level":
 		model = MentionLevelModel(	embedding_dim = cf.EMBEDDING_DIM,
