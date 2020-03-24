@@ -311,7 +311,7 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 					total_mentions += 1
 					total_wordpieces += len(mention.wordpieces)
 
-			print "\r%s" % total_sents,
+			print("\r%s" % total_sents, end="")
 			if type(cf.MAX_SENTS[ds_name]) == int and len(mentions) >= cf.MAX_SENTS[ds_name]:
 				break
 				
@@ -339,7 +339,7 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 			data_tm.append(np.asarray(sent.token_idxs_to_wp_idxs))
 			sys.stdout.write("\r%i / %i" % (i, len(sentences)))
 			sys.stdout.flush()
-		print ""
+		print("")
 		logger.info("Data loader complete.")	
 
 		dataset = EntityTypingDataset(data_x, data_y, data_z, data_i, data_tx, data_ty, data_tm)
@@ -411,10 +411,10 @@ def main(asset_path):
 		#  	print "tm:", batch_tm 
 		#  	print "==="
 
-	print hierarchy.category_counts['train']
+	print(hierarchy.category_counts['train'])
 
 
-	BYPASS_SAVING = True
+	BYPASS_SAVING = False
 	if BYPASS_SAVING:
 		#logger.info("Bypassing file saving - training model directly")
 		#train_without_loading(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wordpieces_train)

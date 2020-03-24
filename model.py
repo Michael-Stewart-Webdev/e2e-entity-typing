@@ -49,7 +49,7 @@ class MentionLevelModel(nn.Module):
 		self.use_context_encoders = use_context_encoders
 		
 		if self.attention_type == "dynamic":
-			print "Using dynamic attention"
+			print("Using dynamic attention")
 			self.attention_layer = nn.Linear(embedding_dim, 3)
 		elif self.attention_type == "scalar":
 			self.component_weights = nn.Parameter(torch.ones(3).float())
@@ -170,7 +170,7 @@ class E2EETModel(nn.Module):
 		self.use_mention_layer = model_options['use_mention_layer']
 		self.use_hierarchy 	 = model_options['use_hierarchy']
 
-		print "Use hierarchy:", self.use_hierarchy
+		print("Use hierarchy:", self.use_hierarchy)
 
 		self.dropout = nn.Dropout(p=0.5)
 
@@ -179,8 +179,8 @@ class E2EETModel(nn.Module):
 			self.hidden2tag_m = nn.Linear(hidden_dim, 1)
 
 		category_weights = [((total_wordpieces - c * 1.0) / (c)) if c > 0 else 0  for c in category_counts]
-		print category_counts
-		print category_weights
+		print(category_counts)
+		print(category_weights)
 
 		self.pos_weights = torch.tensor(category_weights).to(device)
 		self.pos_weights.requires_grad = False

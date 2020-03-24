@@ -19,7 +19,7 @@ torch.backends.cudnn.deterministic=True
 
 # Save an object to a pickle file and provide a message when complete.
 def save_obj_to_pkl_file(obj, obj_name, fname):
-	with open(fname, 'w') as f:
+	with open(fname, 'wb') as f:
 		pkl.dump(obj, f, protocol=2)
 		logger.info("Saved %s to %s." % (obj_name, fname))
 
@@ -134,9 +134,9 @@ class CategoryHierarchy():
 			hierarchy_matrix.append(subcat_idxs_onehot)
 
 		for i, row in enumerate(hierarchy_matrix):
-			print self.categories[i].ljust(40), row[:30]
+			print(self.categories[i].ljust(40), row[:30])
 
-		print self.categories
+		print(self.categories)
 		return torch.from_numpy(np.asarray(hierarchy_matrix)).float().to(device)
 
 	def get_categories_unique_to_test_dataset(self):

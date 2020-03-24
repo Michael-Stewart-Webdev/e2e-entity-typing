@@ -31,7 +31,7 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 
 
 	num_batches = len(data_loaders["train"])
-	print num_batches
+	print(num_batches)
 	progress_bar = ProgressBar(num_batches = num_batches, max_epochs = cf.MAX_EPOCHS, logger = logger)
 	avg_loss_list = []
 

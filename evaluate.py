@@ -161,7 +161,7 @@ class ModelEvaluator():
 
 		if cf.TASK == "end_to_end":
 
-			print all_tys.size()
+			print(all_tys.size())
 			# Filter out any completely-zero rows in batch_ty, i.e. the words that are not entities
 			nonzeros = torch.nonzero(all_tys)
 			indexes = torch.index_select(nonzeros, dim=1, index=torch.tensor([0])).view(-1)
@@ -223,8 +223,8 @@ class ModelEvaluator():
 			return (micro_f1 + macro_f1 + filtered_micro_f1 + filtered_macro_f1 + predictable_micro_f1 + predictable_macro_f1 + filtered_predictable_micro_f1 + filtered_predictable_macro_f1) / 8
 
 		elif cf.TASK == "mention_level":
-			print ""
-			print len(true_and_prediction)
+			print("")
+			print(len(true_and_prediction))
 			#nfgec_default  			= build_true_and_preds(all_tys, all_preds)
 			micro, macro, acc = nfgec_evaluate.loose_micro(true_and_prediction)[2], nfgec_evaluate.loose_macro(true_and_prediction)[2], nfgec_evaluate.strict(true_and_prediction)[2]
 			logger.info("                  Micro F1: %.4f\tMacro F1: %.4f\tAcc: %.4f" % (micro, macro, acc))
