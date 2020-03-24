@@ -55,34 +55,12 @@ class MentionLevelModel(nn.Module):
 		elif self.attention_type == "scalar":
 			self.component_weights = nn.Parameter(torch.ones(3).float())
 
-
-
-		self.USE_RECURRENT_LAYER = True
-		self.recurrent_layer = nn.GRU(self.embedding_dim, self.hidden_dim, bidirectional = True, num_layers = 2, dropout = 0.5)
-		self.batch_size = 100
-		self.max_seq_len = 10
-		if(self.USE_RECURRENT_LAYER):
-			self.hidden2tag = nn.Linear(hidden_dim * 2, label_size)
-		else:
-			self.hidden2tag = nn.Linear(hidden_dim, label_size)
-
-
-
-	def init_hidden(self):
-		# Before we've done anything, we dont have any hidden state.
-		# Refer to the Pytorch documentation to see exactly
-		# why they have this dimensionality.
-		# The axes semantics are (num_layers, minibatch_size, hidden_dim)
-		#return (torch.zeros(4, self.batch_size, self.hidden_dim, device=device),
-		#		torch.zeros(4, self.batch_size, self.hidden_dim, device=device))
-
-		return (torch.zeros(4, self.batch_size, self.hidden_dim, device=device)) #GRU version
 	
 	def forward(self, batch_xl, batch_xr, batch_xa, batch_xm):		
 
-		#batch_xl = batch_xl[:, 0:self.context_window, :].mean(1)	# Truncate the weights to the appropriate window length, just in case BERT's max_seq_len exceeds it	
-		#batch_xr = batch_xr[:, 0:self.context_window, :].mean(1)
-		#batch_xm = batch_xm[:, 0:self.mention_window, :].mean(1)
+		batch_xl = batch_xl[:, 0:self.context_window, :].mean(1)	# Truncate the weights to the appropriate window length, just in case BERT's max_seq_len exceeds it	
+		batch_xr = batch_xr[:, 0:self.context_window, :].mean(1)
+		batch_xm = batch_xm[:, 0:self.mention_window, :].mean(1)
 
 
 		if self.use_context_encoders:
@@ -124,25 +102,8 @@ class MentionLevelModel(nn.Module):
 		elif self.attention_type == "none":
 			joined = torch.cat((batch_xl, batch_xr,  batch_xm), 1)
 		
-
-		if self.USE_RECURRENT_LAYER:
-			self.hidden = self.init_hidden()
-
-			batch = torch.nn.utils.rnn.pack_padded_sequence(joined, [3 * self.max_seq_len] * self.batch_size, batch_first=True, enforce_sorted=False)
-
-			batch, self.hidden = self.recurrent_layer(batch, self.hidden)
-			batch, _ = torch.nn.utils.rnn.pad_packed_sequence(batch, batch_first = True)
-			batch = batch.contiguous()
-			batch = batch.view(-1, batch.shape[2])
-
-			y_hat = self.hidden2tag(batch)
-		
-			#y_hat = y_hat.view(self.batch_size, self.max_seq_len, self.label_size)
-			return y_hat 
-
-		else:
-			batch_x_out = self.dropout(torch.relu(self.layer_1(joined)))
-			y_hat = self.hidden2tag(batch_x_out)	
+		batch_x_out = self.dropout(torch.relu(self.layer_1(joined)))
+		y_hat = self.hidden2tag(batch_x_out)	
 
 
 		if self.use_hierarchy:
@@ -184,6 +145,7 @@ class MentionLevelModel(nn.Module):
 	def evaluate(self, batch_xl, batch_xr, batch_xa, batch_xm):
 		preds = self.forward(batch_xl, batch_xr, batch_xa, batch_xm)
 		return self.predict_labels(preds)
+
 
 	
 
@@ -326,7 +288,7 @@ class E2EETModel(nn.Module):
 
 		
 
-		non_padding_indexes = torch.ByteTensor((batch_x > 0))
+		non_padding_indexes = torch.BoolTensor((batch_x > 0))
 
 		loss_fn = nn.BCEWithLogitsLoss()#pos_weight=self.pos_weights)
 

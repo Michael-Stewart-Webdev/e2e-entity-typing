@@ -10,16 +10,16 @@
 	"max_train_sents": "all",
 	"max_dev_sents": "all",
 	"max_test_sents": "all",
-	"batch_size": 10,
+	"batch_size": 100,
 	"model_options": {
 		"use_mention_layer": false,
 		"use_hierarchy": false,
 
 		"use_context_encoders": false,
-		"attention_type": "dynamic",
+		"attention_type": "none",
 		"context_window": 10,
 		"mention_window": 10		
 	},
-	"task": "end_to_end",
+	"task": "mention_level",
 	"embedding_model": "bert"
 }

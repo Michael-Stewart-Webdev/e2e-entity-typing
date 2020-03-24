@@ -7,9 +7,6 @@ First place the BERT model folder into `bert/` and start Bert as a Service via t
 
     bert-serving-start -model_dir cased_L-12_H-768_A-12 -num_worker=1 -max_seq_len=100 -pooling_strategy=NONE
     
-To run mention level entity typing, run:
-
-    bert-serving-start -model_dir cased_L-12_H-768_A-12 -num_worker=1 -max_seq_len=10
    
 Then, open `config.json` and modify it to suit your experiments. The main values to change are:
 
@@ -17,6 +14,8 @@ Then, open `config.json` and modify it to suit your experiments. The main values
     "model": <the name of your model, can be anything>
     "task": either "end_to_end" or "mention_level"
     "embedding_model": either "bert", "glove", or "word2vec"
+
+If you are using mention_level, set batch size to 100. seq_len should always be 100, or the same as the max_seq_len above.
 
 Please note that if you want to use word2vec or glove you'll need to download the pretrained model files and place them under `/word2vec` and `glove` respectively. The filenames are `glove.6B.300d.txt` (from [here](https://nlp.stanford.edu/projects/glove/)) and `enwiki_20180420_300d.txt` (from [here](https://wikipedia2vec.github.io/wikipedia2vec/pretrained/)) respectively.
 
