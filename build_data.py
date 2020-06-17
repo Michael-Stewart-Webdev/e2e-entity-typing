@@ -305,6 +305,8 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 				if type(cf.MAX_SENTS[ds_name]) == int and len(sentences) >= cf.MAX_SENTS[ds_name]:
 					break
 			elif cf.TASK == "mention_level":
+				# This part of the code reads each line in the dataset (such as data/bbn/train.json) and constructs a
+				# Mention object from it.
 				for m in line['mentions']:
 					start = m['start']
 					end = m['end']
