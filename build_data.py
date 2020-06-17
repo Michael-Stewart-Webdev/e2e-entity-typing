@@ -3,13 +3,10 @@ from torch.utils.data import DataLoader
 import sys
 import numpy as np
 import pickle as pkl
-
-
 import codecs, jsonlines
 
+# logger is a function for printing to the console nicely. It also saves it to a file.
 from logger import logger
-
-
 
 import data_utils as dutils
 from data_utils import Vocab, CategoryHierarchy, EntityTypingDataset, MentionTypingDataset, tokens_to_wordpieces
@@ -20,9 +17,11 @@ cf = load_config()
 from train import train_without_loading
 from evaluate import evaluate_without_loading
 
+# We need to set the seed to a specific number so that the neural network will output the same weights every time we run it with the same dataset.
 torch.manual_seed(123)
 torch.backends.cudnn.deterministic=True
 
+# MAX_SENT_LEN is the maximum sequence length, as specified in the config.
 MAX_SENT_LEN = cf.MAX_SENT_LEN
 
 # A class for holding one sentence from the dataset.
@@ -35,7 +34,7 @@ class Sentence(object):
 		self.tokens = tokens[:]
 		self.labels = labels[:]
 
-		
+		# The build_labels variable is set to False when constructing sentences from the testing set (I think!)
 		if build_labels:
 			self.mentions = self.get_mentions_vector(self.labels)
 		self.wordpieces, self.token_idxs_to_wp_idxs = self.get_wordpieces(tokens)
@@ -59,9 +58,6 @@ class Sentence(object):
 		
 		self.pad_token_map()
 
-
-		#if build_labels:
-			
 
 		if build_labels:					
 			self.wordpiece_mentions = self.get_mentions_vector(self.wordpiece_labels)
@@ -154,25 +150,17 @@ class Sentence(object):
 		s += "Token map:          %s\n" % self.token_idxs_to_wp_idxs
 		return s
 
-
+# The Mention stores one single training/testing example for the Mention-level model.
+# It is a subclass of the Sentence class.
+# 
 class Mention(Sentence):
 	def __init__(self, tokens, labels, word_vocab, wordpiece_vocab, start, end):
 		super(Mention, self).__init__(tokens, labels, word_vocab, wordpiece_vocab, build_labels = False)
-		
-		# Build left, right, and mention context using start and end
-			
+					
 		self.labels = labels
 
 		self.token_mention_start = start
 		self.token_mention_end = end
-
-		# A mention is out of bounds if it lies outside of max_sent_len.
-		#self.mention_oob = False
-		#if start > cf.MAX_SENT_LEN or end > cf.MAX_SENT_LEN:
-		#	self.mention_oob = True
-		#	self.mention_start = 0
-		#	self.mention_end = 0			
-		#else:
 
 		# Determine the mention start and end with respect to the word pieces, rather than the tokens.
 		# If the mention_end is -1, set mention_end to the index of the [SEP] character in the wordpieces (i.e. the last
@@ -185,17 +173,10 @@ class Mention(Sentence):
 
 		self.wordpiece_vocab = wordpiece_vocab
 
-		self.build_context_wordpieces()
-		
-		#print ",,,"
-		#print self.wordpiece_indexes_left
-		#print self.wordpiece_indexes_right
-		#print self.wordpiece_indexes_mention
-		#print self.wordpiece_indexes_all
-		#print "===="
+		self.build_context_wordpieces()		
 		
 		
-
+	# This function identifies the left, right and mention context based on the data provided in the json files.
 	def build_context_wordpieces(self):
 		maxlen 	 = cf.MODEL_OPTIONS['context_window']
 		maxlen_m = cf.MODEL_OPTIONS['mention_window']
@@ -226,12 +207,15 @@ class Mention(Sentence):
 		self.token_idxs_to_wp_idxs = self.token_idxs_to_wp_idxs[:cf.MAX_SENT_LEN]
 
 		
-
+	# A mention is considered valid if it is within the maximum sequence length. If I recall correctly I used this
+	# to make sure there were no mentions that were somehow too long (as they would break the training code).
 	def is_valid(self):
 		maxlen 	 = cf.MODEL_OPTIONS['context_window']
 		maxlen_m = cf.MODEL_OPTIONS['mention_window'] 
 		return len(self.wordpiece_indexes_left) == maxlen and len(self.wordpiece_indexes_right) == maxlen and (self.mention_end - self.mention_start) <= maxlen_m
 
+	# This function prints out the mention. It can be really handy for figuring out how it works. If you have a mention object,
+	# just call print(mention) and it will output the data below.
 	def __repr__(self):
 		s =  "Tokens:             %s\n" % self.tokens	
 		s += "Wordpieces:         %s\n" % self.wordpieces 
@@ -252,6 +236,9 @@ class Mention(Sentence):
 		
 
 # Builds the hierarchy given a list of file paths (training and test sets, for example).
+# This function iterates over each dataset (train, dev, test) and extracts all possible entity types
+# that appear in each dataset.
+# It uses the CategoryHierarchy object (which is in data_utils), which I built to simplify this process.
 def build_hierarchy(filepaths):
 	# Load the hierarchy
 	logger.info("Building category hierarchy.")
@@ -273,7 +260,12 @@ def build_hierarchy(filepaths):
 
 
 
-
+# This function builds the dataset.
+# filepath: The filepath of the dataset, e.g. 'data/bbn/train.json'.
+# hierarchy: The Hierarchy object, which stores the category hierarchy.
+# word_vocab: The Vocab object storing the word vocab, i.e. all unique words in the dataset.
+# wordpiece_vocab: The Vocab object storing the wordpiece object, i.e. all unique word pieces in the dataset.
+# ds_name: The name of the dataset (e.g. "train").
 def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 	sentences = []	
 	invalid_sentences_count = 0
@@ -285,6 +277,9 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 
 	total_wordpieces = 0
 	# Generate the Sentences
+
+	# When using the End-to-end model, the input to the model are entire sentences, and so we create one Sentence object for each sentence in the training dataset.
+	# When using the Mention-level model, the input to the model is a [left, mention, right] context, so we create 1 or more Mention objects for each sentence in the training dataset.
 	with jsonlines.open(filepath, "r") as reader:
 		for line in reader:
 			tokens = [w for w in line['tokens']]
@@ -338,6 +333,9 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 
 	if cf.TASK == "end_to_end":
 		# Construct an EntityTypingDataset object.
+		# This is to build the Data Loader, which Pytorch can use to read the dataset in a numeric format.
+		# Each of the variables here represent an input or output. For example, data_x is the index of each wordpiece
+		# according to the wordpiece_vocab object, data_y is the wordpiece labels, data_tx is the token indexes, etc.
 		data_x, data_y, data_z, data_i, data_tx, data_ty, data_tm,  = [], [], [], [], [], [], []
 		for i, sent in enumerate(sentences):
 			data_x.append(np.asarray(sent.wordpiece_indexes))
@@ -357,7 +355,40 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 
 	
 	elif cf.TASK == "mention_level":
-
+		# For the mention level task, the input is the left, right and mention context.
+		# data_xl is the wordpieces indexes of the left context.
+		# data_xr is the wordpiece indexes of the right context.
+		# data_xa is all of the wordpiece indexes (not sure why I need this but it is probably important!)
+		# data_xm is the wordpiece indexes of the mention context.
+		# data_y are all of the labels corresponding to this training example.
+		# 
+		# Here is an example: if the sentence was "Barrack Obama spoke to Michelle", then we would have a list of Mentions (stored in the 'mentions' list)
+		# as follows:
+		#
+		# left: [] (empty)
+		# mention: ["Barrack", "Obama"]
+		# right: ["spoke", "to", "Michelle"]
+		#
+		# Those are the word-level contexts. The wordpiece contexts might be something like:
+		# 
+		# left: [] (empty)
+		# mention: ["Ba", "##rack", "O", "##bama"]
+		# right: ["spoke", "to", "Michelle"]
+		#
+		# So for this training example, data_xl, data_xm and data_xr will be the indexes of each of those wordpieces with
+		# respect to the wordpiece_vocab object. Perhaps "Ba" is index 12, "##rack" is index, 13, "O" is index 14, and "##bama" is index 15, and so on. Our variables
+		# will then look something like this:
+		#
+		# data_xl = []
+		# data_xm = [12, 13, 14, 15]
+		# data_xr = [16, 17, 18]
+		#
+		# And the labels of this particular example are maybe "Person" and "Person/Politician", which are perhaps index 0 and 1 in the hierarchy, so then
+		#
+		# data_y = [0, 1]
+		#
+		# We can then build a data loader by applying this same idea to every single mention in this dataset.
+		
 		data_xl, data_xr, data_xa, data_xm, data_y = [], [], [], [], []
 
 		for i, mention in enumerate(mentions):
@@ -380,9 +411,11 @@ def build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name):
 
 
 
-def main(asset_path):
-	#cf, logger = load_config()
-	
+def main():
+
+	# The dataset filenames are stored as a dictionary, e.g.
+	# "train": "data/bbn/train.json",
+	# "dev": "data/bbn/dev.json"... etc
 	dataset_filenames = {
 		"train": cf.TRAIN_FILENAME,
 		"dev": cf.DEV_FILENAME,
@@ -399,7 +432,9 @@ def main(asset_path):
 	logger.info("Hierarchy contains %d categories unique to the test set." % len(hierarchy.get_categories_unique_to_test_dataset()))
 
 	# 3. Build a data loader for each dataset (train, test).
+	# A 'data loader' is an Pytorch object that stores a dataset in a numeric format.
 	data_loaders = {}
+	# Iterate over each of the train, dev and test datasets.
 	for ds_name, filepath in dataset_filenames.items():
 		logger.info("Loading %s dataset from %s." % (ds_name, filepath))
 		dataset, total_wordpieces = build_dataset(filepath, hierarchy, word_vocab, wordpiece_vocab, ds_name)
@@ -410,30 +445,21 @@ def main(asset_path):
 		logger.info("Dataset contains %i wordpieces (including overly long sentences)." % total_wordpieces)
 		if ds_name == "train":
 			total_wordpieces_train = total_wordpieces
-		# for batch_x, batch_y, batch_z, batch_i, batch_tx, batch_ty, batch_tm,  in data_loader:
-		#  	print "x:", batch_x 
-		#  	print "y:", batch_y
-		#  	print "z:", batch_z
-
-		#  	print "i:", batch_i
-		#  	print "tx:", batch_tx 
-		#  	print "ty:", batch_ty 
-		#  	print "tm:", batch_tm 
-		#  	print "==="
 
 	print(hierarchy.category_counts['train'])
 
-
+	# This part is not necessary (it was added so that I didn't have to save the huge Wiki dataset to disk).
+	# If BYPASS_SAVING is set to true, the model will start training and the data loaders will not be saved onto the harddrive.
 	BYPASS_SAVING = False
 	if BYPASS_SAVING:
-		#logger.info("Bypassing file saving - training model directly")
-		#train_without_loading(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wordpieces_train)
+		logger.info("Bypassing file saving - training model directly")
+		train_without_loading(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wordpieces_train)
 		#return
 		logger.info("Evaluating directly")
 		evaluate_without_loading(data_loaders, word_vocab, wordpiece_vocab, hierarchy, total_wordpieces_train)
 		return
 	
-
+	# This part saves every data loader into the asset directory, so that they can be read during training.
 	logger.info("Saving data loaders to file...")
 
 	dutils.save_obj_to_pkl_file(data_loaders, 'data loaders', cf.ASSET_FOLDER + '/data_loaders.pkl')
@@ -449,5 +475,6 @@ def main(asset_path):
 	dutils.save_list_to_file(wordpiece_vocab.ix_to_token, 'wordpiece vocab', cf.DEBUG_FOLDER + '/wordpiece_vocab.txt')
 
 
+# This function originally had an asset path variable, but I have just removed it (the asset path is specified in the config).
 if __name__ == "__main__":
-	main(asset_path='models/ontonotes_small_test/asset/')
+	main()
