@@ -58,7 +58,7 @@ class ModelEvaluator():
 
 
 
-				non_padding_indexes = torch.BoolTensor((batch_tx > 0))
+				non_padding_indexes = torch.ByteTensor((batch_tx > 0))
 
 				if cf.EMBEDDING_MODEL == "bert":
 					wordpieces = batch_to_wordpieces(batch_x, self.wordpiece_vocab)

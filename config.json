@@ -1,6 +1,6 @@
 {
-	"dataset": "bbn_modified",
-	"model": "bbn__15dec",
+	"dataset": "figer_50k",
+	"model": "figer_50k__1feb2021_dynamic",
 	"embedding_dim": 768,
 	"hidden_dim": 768,
 	"max_epochs": 2000,
@@ -16,7 +16,7 @@
 		"use_hierarchy": false,
 
 		"use_context_encoders": false,
-		"attention_type": "none",
+		"attention_type": "dynamic",
 		"context_window": 10,
 		"mention_window": 10		
 	},

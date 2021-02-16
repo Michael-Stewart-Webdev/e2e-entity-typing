@@ -3,20 +3,23 @@ End-to-end entity typing using Pytorch and BERT.
 
 ## Setting up
 
-First place the BERT model folder into `bert/` and start Bert as a Service via the command: 
+First place the BERT model folder into `bert/`. To run the end-to-end model, navigate to the bert folder in a terminal start Bert as a Service via the command: 
 
-    cd bert
     bert-serving-start -model_dir cased_L-12_H-768_A-12 -num_worker=1 -max_seq_len=100 -pooling_strategy=NONE
-    
+
+To run the mention-level model, start Bert as a Service via the command:
+
+    bert-serving-start -model_dir cased_L-12_H-768_A-12 -num_worker=1 -max_seq_len=10
    
 Then, open `config.json` and modify it to suit your experiments. The main values to change are:
 
     "dataset": either "bbn_modified", "figer_50k", or "ontonotes_modified"
-    "model": <the name of your model, can be anything>
+    "model": <the name of your model (for your reference)>
     "task": either "end_to_end" or "mention_level"
-    "embedding_model": either "bert", "glove", or "word2vec"
 
-If you are using mention_level, set batch size to 100. seq_len should always be 100, or the same as the max_seq_len above.
+For the end-to-end model, the embedding model can be changed:
+
+    "embedding_model": either "bert", "glove", or "word2vec"
 
 Please note that if you want to use word2vec or glove you'll need to download the pretrained model files and place them under `/word2vec` and `glove` respectively. The filenames are `glove.6B.300d.txt` (from [here](https://nlp.stanford.edu/projects/glove/)) and `enwiki_20180420_300d.txt` (from [here](https://wikipedia2vec.github.io/wikipedia2vec/pretrained/)) respectively.
 

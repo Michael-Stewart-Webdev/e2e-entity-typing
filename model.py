@@ -58,9 +58,9 @@ class MentionLevelModel(nn.Module):
 	
 	def forward(self, batch_xl, batch_xr, batch_xa, batch_xm):		
 
-		batch_xl = batch_xl[:, 0:self.context_window, :].mean(1)	# Truncate the weights to the appropriate window length, just in case BERT's max_seq_len exceeds it	
-		batch_xr = batch_xr[:, 0:self.context_window, :].mean(1)
-		batch_xm = batch_xm[:, 0:self.mention_window, :].mean(1)
+		#batch_xl = batch_xl[:, 0:self.context_window, :].mean(1)	# Truncate the weights to the appropriate window length, just in case BERT's max_seq_len exceeds it	
+		#batch_xr = batch_xr[:, 0:self.context_window, :].mean(1)
+		#batch_xm = batch_xm[:, 0:self.mention_window, :].mean(1)
 
 
 		if self.use_context_encoders:
@@ -195,7 +195,7 @@ class E2EETModel(nn.Module):
 
 		self.USE_RECURRENT_LAYER = True
 
-		self.batch_size = 10
+		self.batch_size = 10 
 		self.max_seq_len = 100
 		if(self.USE_RECURRENT_LAYER):
 			self.hidden2tag = nn.Linear(hidden_dim * 2, label_size)
@@ -286,9 +286,10 @@ class E2EETModel(nn.Module):
 
 	def calculate_loss(self, y_hat, batch_x, batch_y, batch_z):
 
-		
+		#print(batch_x.size())
+		#print(y_hat.size())
 
-		non_padding_indexes = torch.BoolTensor((batch_x > 0))
+		non_padding_indexes = torch.ByteTensor((batch_x > 0))
 
 		loss_fn = nn.BCEWithLogitsLoss()#pos_weight=self.pos_weights)
 
@@ -339,6 +340,4 @@ class E2EETModel(nn.Module):
 				#print "avg_preds:", avg_preds[0]
 
 		return self.predict_labels(avg_preds)
-
-
 

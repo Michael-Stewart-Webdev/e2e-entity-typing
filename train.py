@@ -45,6 +45,8 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 		epoch_losses = []
 
 		if cf.TASK == "end_to_end":
+			if cf.BATCH_SIZE != 10:
+				print("Warning: batch size must currently be set to 10 for the end-to-end model.")
 			for (i, (batch_x, batch_y, batch_z, _, batch_tx, batch_ty, _)) in enumerate(data_loaders["train"]):
 
 
@@ -131,8 +133,6 @@ def train(model, data_loaders, word_vocab, wordpiece_vocab, hierarchy, epoch_sta
 				model.train()
 
 				y_hat = model(bert_embs_l, bert_embs_r, None, bert_embs_m)
-
-				#print(y_hat.size(), batch_y.size())
 
 				loss = model.calculate_loss(y_hat, batch_y)
 
