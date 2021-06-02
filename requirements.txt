@@ -138,7 +138,7 @@ traitlets==4.3.3
 transformers==3.5.1
 typing-extensions==3.7.4.3
 Unidecode==1.1.1
-urllib3==1.24.3
+urllib3==1.26.5
 virtualenv==16.7.5
 wasabi==0.4.2
 wcwidth==0.1.7
