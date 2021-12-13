@@ -60,7 +60,7 @@ kiwisolver==1.1.0
 konoha==4.6.2
 kytea==0.1.4
 langdetect==1.0.7
-lxml==4.6.2
+lxml==4.6.5
 Markdown==3.1.1
 MarkupSafe==1.1.1
 marshmallow==3.9.1
